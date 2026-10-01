@@ -125,8 +125,8 @@ async def probe_services() -> list[dict[str, Any]]:
         _http_ok(nginx_url),
     )
     return [
-        {"id": "technitium", "name": "Technitium", "ok": tech_ok},
-        {"id": "blocky", "name": "Blocky", "ok": blocky_ok},
+        {"id": "technitium", "name": "DNS", "ok": tech_ok},
+        {"id": "blocky", "name": "Upstream", "ok": blocky_ok},
         {"id": "panel", "name": "Panel", "ok": True},
         {"id": "nginx", "name": "Nginx", "ok": nginx_ok},
     ]

@@ -27,6 +27,10 @@ def technitium_cert_path() -> str:
 def write_pfx(raw: bytes) -> Path:
     dest = ssl_dir() / "dns-tls.pfx"
     dest.write_bytes(raw)
+    try:
+        os.chmod(dest, 0o600)
+    except OSError:
+        pass
     return dest
 
 
@@ -61,8 +65,15 @@ def pem_to_pfx(key_pem: bytes, chain_pem: bytes, key_password: str = "") -> byte
 
 def save_pem_sidecars(key_pem: bytes, chain_pem: bytes) -> None:
     d = ssl_dir()
-    (d / "dns-tls.key").write_bytes(key_pem)
-    (d / "dns-tls.crt").write_bytes(chain_pem)
+    key_path = d / "dns-tls.key"
+    crt_path = d / "dns-tls.crt"
+    key_path.write_bytes(key_pem)
+    crt_path.write_bytes(chain_pem)
+    try:
+        os.chmod(key_path, 0o600)
+        os.chmod(crt_path, 0o644)
+    except OSError:
+        pass
 
 
 def settings_params_for_pfx(password: str = "") -> dict[str, Any]:

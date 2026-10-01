@@ -277,6 +277,11 @@ def write_pem(key_pem: bytes, cert_pem: bytes) -> None:
     os.chmod(tmp_crt, 0o644)
     tmp_key.replace(key_path())
     tmp_crt.replace(cert_path())
+    try:
+        os.chmod(key_path(), 0o600)
+        os.chmod(cert_path(), 0o644)
+    except OSError:
+        pass
 
 
 def ensure_self_signed(cn: str = "dns-panel") -> bool:
@@ -286,7 +291,7 @@ def ensure_self_signed(cn: str = "dns-panel") -> bool:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, cn),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "DNS Panel Lab"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "DNS Panel"),
     ])
     now = datetime.now(timezone.utc)
     cert = (
@@ -317,86 +322,47 @@ def ensure_self_signed(cn: str = "dns-panel") -> bool:
     return True
 
 
-async def _docker_client() -> httpx.AsyncClient | None:
-    sock = Path("/var/run/docker.sock")
-    if not sock.exists():
-        return None
-    transport = httpx.AsyncHTTPTransport(uds=str(sock))
-    return httpx.AsyncClient(transport=transport, timeout=120.0)
+async def _nginx_http_ok() -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get("http://nginx/")
+            return r.status_code < 500
+    except Exception:
+        return False
 
 
 async def reload_nginx() -> dict[str, Any]:
-    """HUP dns-nginx via Docker API (optional docker.sock)."""
-    name = os.environ.get("PANEL_NGINX_CONTAINER", "dns-nginx")
-    client = await _docker_client()
-    if client is None:
-        return {"reloaded": False, "reason": "docker.sock not mounted — restart dns-nginx manually"}
-    try:
-        async with client:
-            kill = await client.post(f"http://docker/containers/{name}/kill", params={"signal": "HUP"})
-            if kill.status_code >= 300:
-                body = kill.text[:200] if kill.text else ""
-                return {"reloaded": False, "reason": f"HUP failed: HTTP {kill.status_code} {body}"}
-            return {"reloaded": True, "reason": "nginx HUP"}
-    except Exception as exc:
-        return {"reloaded": False, "reason": str(exc)}
+    """Ask stack-watch to HUP dns-nginx (no docker.sock in panel)."""
+    from . import signals
+
+    out = signals.request_nginx_hup()
+    # HUP is fast; give watcher a moment
+    await asyncio.sleep(1.5)
+    ok = await _nginx_http_ok()
+    return {
+        "reloaded": ok,
+        "reason": "nginx HUP signaled" if ok else "nginx HUP signaled (probe pending)",
+        **out,
+    }
 
 
 async def apply_https_port(port: int, http_enabled: bool | None = None) -> dict[str, Any]:
-    """Persist listen settings + recreate nginx publish mapping via compose."""
+    """Persist listen settings + signal stack-watch to recreate nginx."""
+    from . import signals
+
     enabled = read_http_enabled() if http_enabled is None else bool(http_enabled)
     saved = write_listen_settings(port, enabled)
-    p = saved["httpsPort"]
-    # conf already written — HUP first so redirect target updates even if recreate fails
-    await reload_nginx()
-    host_project = os.environ.get("DNS_HOST_PROJECT", "/opt/dns")
-    client = await _docker_client()
-    if client is None:
-        return {
-            **saved,
-            "applied": False,
-            "reason": "docker.sock missing — settings saved; run: docker compose -p dns up -d nginx",
-        }
-    image = os.environ.get("PANEL_COMPOSE_IMAGE", "docker.io/library/docker:27-cli")
-    try:
-        async with client:
-            payload = {
-                "Image": image,
-                "Cmd": ["compose", "-p", "dns", "up", "-d", "--force-recreate", "nginx"],
-                "WorkingDir": "/work",
-                "HostConfig": {
-                    "Binds": [
-                        "/var/run/docker.sock:/var/run/docker.sock",
-                        f"{host_project}:/work",
-                    ],
-                    "AutoRemove": True,
-                },
-            }
-            create = await client.post("http://docker/containers/create", json=payload)
-            if create.status_code == 404:
-                pull = await client.post("http://docker/images/create", params={"fromImage": image})
-                if pull.status_code >= 300:
-                    return {**saved, "applied": False, "reason": f"pull {image} failed"}
-                await asyncio.sleep(1)
-                create = await client.post("http://docker/containers/create", json=payload)
-            if create.status_code >= 300:
-                return {
-                    **saved,
-                    "applied": False,
-                    "reason": f"compose create failed: HTTP {create.status_code} {(create.text or '')[:200]}",
-                }
-            cid = create.json().get("Id")
-            start = await client.post(f"http://docker/containers/{cid}/start")
-            if start.status_code >= 300:
-                return {**saved, "applied": False, "reason": f"compose start failed: HTTP {start.status_code}"}
-            wait = await client.post(f"http://docker/containers/{cid}/wait")
-            code = (wait.json() or {}).get("StatusCode", 1)
-            if code != 0:
-                return {
-                    **saved,
-                    "applied": False,
-                    "reason": f"compose exited {code} — check port free / .env",
-                }
-            return {**saved, "applied": True, "reason": "nginx recreated"}
-    except Exception as exc:
-        return {**saved, "applied": False, "reason": str(exc)}
+    # conf already on disk — recreate picks new host port from .env
+    sig = signals.request_nginx_recreate()
+    ok = False
+    for _ in range(45):
+        await asyncio.sleep(1)
+        if await _nginx_http_ok():
+            ok = True
+            break
+    return {
+        **saved,
+        "applied": ok,
+        "reason": "nginx recreate signaled" if ok else "nginx recreate signaled — still starting",
+        **sig,
+    }

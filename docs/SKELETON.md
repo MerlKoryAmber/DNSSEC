@@ -61,8 +61,8 @@
 |-----------|------|------------|--------|
 | `dns-technitium` | лицо DNS, зоны, client DoT/DoH, login | `53`, `853`, `127.0.0.1:5380` | forwarders → IP Blocky; `dnssecValidation=false` при hybrid |
 | `dns-blocky` | recursive upstreams | **нет** | `config/blocky/config.yml`, `strategy: strict` |
-| `dns-blocky-watch` | inotify → `docker restart dns-blocky` | — | docker.sock |
-| `dns-panel` | FastAPI | internal `:8000` | mounts `config/blocky` + `config/technitium` |
+| `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock для panel-ops |
+| `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock |
 | `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:443 (HTTPS DoH); TLS `config/nginx/ssl` |
 
 Сеть: `dns_net`. Blocky **не** публиковать на host :53.
@@ -114,14 +114,16 @@
 |------|-----------------|
 | `main.py` | FastAPI app, mount static?, include routers |
 | `config.py` | Settings: TECHNITIUM_*, BLOCKY_* |
-| `auth.py` | `/api/auth/login|logout|me`, session cookie |
+| `auth.py` | `/api/auth/login|logout|me`, session cookie `SameSite=strict`; login rate-limit (fail/IP) |
+| `session_secret.py` | если secret=default → файл `config/panel/session_secret` |
+| `signals.py` | panel → `config/panel/signals/` (`nginx.hup` / `nginx.recreate`) для stack-watch |
 | `routes.py` | zones, records, settings, **forwarders** |
 | `technitium.py` | HTTP-клиент Technitium API |
 | `blocky_config.py` | encode/decode/read/write Blocky YAML |
 | `blocklist_presets.py` | curated blocklist URLs (seed выключенными) |
 | `query_logs.py` | ensure Query Logs (Sqlite) + resolve logger |
 | `host_stats.py` | CPU/RAM (/proc) + probes Technitium/Blocky/Nginx |
-| `panel_tls.py` | Panel UI TLS (nginx PEM) + Listen (HTTPS port, HTTP on/off) + HUP/recreate nginx |
+| `panel_tls.py` | Panel UI TLS (nginx PEM) + Listen; reload через signals (не docker.sock) |
 | `ui_prefs.py` | UI prefs in `ui.yml` (timezone display, default Europe/Moscow) |
 | `tls_store.py` | .pfx write + PEM key/chain → PKCS#12 |
 

@@ -176,8 +176,13 @@ EOF
 
 compose_up() {
   cd "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR/config/panel/signals"
+  chmod 700 "$TARGET_DIR/config/panel/signals" 2>/dev/null || true
+  if [[ -f "$TARGET_DIR/.env" ]]; then
+    grep -q '^DNS_HOST_PROJECT=' "$TARGET_DIR/.env" || echo "DNS_HOST_PROJECT=${TARGET_DIR}" >>"$TARGET_DIR/.env"
+  fi
   log "docker compose up (project=${COMPOSE_PROJECT}) — только сервисы dns-*"
-  docker compose -p "$COMPOSE_PROJECT" up -d --build
+  docker compose -p "$COMPOSE_PROJECT" --project-directory "$TARGET_DIR" up -d --build
 }
 
 wait_technitium() {

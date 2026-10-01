@@ -284,7 +284,7 @@
             </div>
             <div class="brand-copy">
               <div class="brand-title">DNS Panel</div>
-              <div class="brand-sub">Lab</div>
+              <div class="brand-sub">DNS management</div>
             </div>
           </div>
           <nav class="sidebar-nav">
@@ -298,7 +298,7 @@
           <nav class="sidebar-nav-bottom">
             <button type="button" class="nav-item ${active === "settings" ? "active" : ""}" data-go="#/settings">Settings</button>
           </nav>
-          <div class="sidebar-foot">Technitium API · internal</div>
+          <div class="sidebar-foot">Internal</div>
         </aside>
         <div class="main">
           <header class="topbar">
@@ -786,7 +786,7 @@
     back.innerHTML = `
       <div class="modal">
         <h3>Create zone</h3>
-        <div class="field"><label>Zone name</label><input id="zName" placeholder="lab.local" /></div>
+        <div class="field"><label>Zone name</label><input id="zName" placeholder="example.local" /></div>
         <div class="field"><label>Type</label>
           <select id="zType">
             <option value="Primary">Primary</option>
@@ -981,7 +981,7 @@
           </select>
         </div>
         <div class="field"><label>Value</label><input id="rValue" placeholder="192.168.0.10" />
-          <div class="hint">MX: “10 mail.lab.local”. SRV: “prio weight port target”</div>
+          <div class="hint">MX: “10 mail.example.local”. SRV: “prio weight port target”</div>
         </div>
         <div class="field"><label>TTL</label><input id="rTtl" type="number" value="3600" /></div>
         <div class="form-error" id="rErr"></div>
@@ -1268,7 +1268,7 @@
             <div class="proto-row">
               <div class="proto-main">
                 <label class="inline"><input type="checkbox" id="dohHttp" /> DNS-over-HTTP (behind reverse proxy)</label>
-                <div class="hint">Lab: http://HOST:9080/dns-query</div>
+                <div class="hint">Via panel proxy: http(s)://HOST:&lt;UI-port&gt;/dns-query</div>
               </div>
               <div class="proto-port">
                 <label for="httpPort">Port</label>
@@ -1851,7 +1851,7 @@
         const httpPort = st.httpPort || 9080;
         const httpOn = st.httpEnabled !== false;
         const statusLine = st.present
-          ? `set${st.selfSigned ? " (self-signed lab)" : ""}`
+          ? `set${st.selfSigned ? " (self-signed)" : ""}`
           : "not set";
         inner.innerHTML = `
           <div class="form-card">
@@ -1911,7 +1911,7 @@
                   <div class="field field-flush">
                     <label for="panelHttpsPort">Host port for panel HTTPS</label>
                     <input type="number" id="panelHttpsPort" min="1" max="65535" value="${httpsPort}" />
-                    <div class="hint">Maps host :port → nginx :443. Not ${httpPort} / 53 / 5380. Save recreates dns-nginx.</div>
+                    <div class="hint">Maps host :port → nginx :443. Avoid ${httpPort} / 53 / other used ports. Save recreates dns-nginx.</div>
                   </div>
                 </div>
                 <div class="proto-port">

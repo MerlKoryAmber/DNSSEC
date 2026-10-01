@@ -231,8 +231,8 @@ async def upload_dns_tls_pem(
         raise HTTPException(status_code=400, detail="Empty private key file")
     if not chain_raw:
         raise HTTPException(status_code=400, detail="Empty certificate / chain file")
-    if len(key_raw) > 2 * 1024 * 1024 or len(chain_raw) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large")
+    if len(key_raw) > 256 * 1024 or len(chain_raw) > 256 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 256 KB each)")
     try:
         pfx = tls_store.pem_to_pfx(key_raw, chain_raw, key_password=key_password or "")
     except ValueError as exc:
@@ -280,8 +280,8 @@ async def upload_panel_tls(
         raise HTTPException(status_code=400, detail="Empty private key file")
     if not cert_raw:
         raise HTTPException(status_code=400, detail="Empty certificate file")
-    if len(key_raw) > 2 * 1024 * 1024 or len(cert_raw) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large")
+    if len(key_raw) > 256 * 1024 or len(cert_raw) > 256 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 256 KB each)")
     try:
         panel_tls.write_pem(key_raw, cert_raw)
     except ValueError as exc:
@@ -953,6 +953,8 @@ async def install_blocking_log(
     raw = await file.read()
     if len(raw) < 1000:
         raise HTTPException(status_code=400, detail="Empty or invalid zip")
+    if len(raw) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Zip too large (max 50 MB)")
     name = file.filename or "QueryLogsSqliteApp.zip"
     try:
         return await ql.install_from_zip(client, raw, filename=name)

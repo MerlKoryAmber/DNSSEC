@@ -55,7 +55,7 @@ services:
     networks:
       - dns_net
 
-  # Перезапуск blocky при смене YAML (panel пишет файл)
+  # Watch: Blocky YAML + panel signals (nginx HUP / recreate). Sole docker.sock holder for panel ops.
   blocky-watch:
     image: docker.io/library/docker:27-cli
     container_name: dns-blocky-watch
@@ -64,18 +64,38 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./config/blocky:/config:ro
+      - ./config/panel/signals:/signals
+      # same host path inside container so compose volume binds resolve on the host
+      - "${DNS_HOST_PROJECT:-/opt/dns}:${DNS_HOST_PROJECT:-/opt/dns}:ro"
+    working_dir: ${DNS_HOST_PROJECT:-/opt/dns}
     environment:
       <<: *proxy-guard
+      DNS_HOST_PROJECT: ${DNS_HOST_PROJECT:-/opt/dns}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         apk add --no-cache inotify-tools >/dev/null
-        echo "watching /config/config.yml"
+        mkdir -p /signals
+        PROJECT="$${DNS_HOST_PROJECT:-/opt/dns}"
+        echo "watching blocky config + panel signals (project=$$PROJECT)"
         while true; do
-          inotifywait -e modify,close_write,move /config/config.yml || sleep 2
-          echo "reload blocky"
-          docker restart dns-blocky || true
-          sleep 2
+          inotifywait -e modify,close_write,move,create,attrib \
+            /config/config.yml /signals 2>/dev/null || sleep 2
+          if [ -f /signals/nginx.recreate ]; then
+            rm -f /signals/nginx.recreate /signals/nginx.hup
+            echo "recreate dns-nginx"
+            docker compose -p dns --project-directory "$$PROJECT" up -d --no-deps --force-recreate nginx || true
+            sleep 2
+          elif [ -f /signals/nginx.hup ]; then
+            rm -f /signals/nginx.hup
+            echo "HUP dns-nginx"
+            docker kill -s HUP dns-nginx || docker restart dns-nginx || true
+            sleep 1
+          else
+            echo "reload blocky"
+            docker restart dns-blocky || true
+            sleep 2
+          fi
         done
     depends_on:
       - blocky
@@ -111,7 +131,6 @@ services:
       - ./nginx/generated:/var/lib/nginx-generated
       - ./.env:/var/lib/panel/host.env
       - ./vendor:/opt/dns/vendor:ro
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - technitium
       - blocky
