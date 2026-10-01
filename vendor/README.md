@@ -1,13 +1,13 @@
 # vendor/
 
-Сюда класть офлайн-артефакты для lab (не в git).
+Офлайн-артефакты для lab.
 
 ## Query Logs (Sqlite)
 
-Файл: `QueryLogsSqliteApp-v9.1.2.zip`  
-Скачать (с машины с интернетом):  
-https://download.technitium.com/dns/apps/QueryLogsSqliteApp-v9.1.2.zip  
+Файл: **`QueryLogsSqliteApp-v9.1.2.zip`** (~17 MiB) — **в git** (`vendor/`).
 
-Потом:
-- `scp … root@192.168.0.178:/opt/dns/vendor/`  
-  или загрузить во вкладке **Blocking → Log**
+Панель при ensure сначала берёт zip отсюда (`/opt/dns/vendor/…`),
+download с `download.technitium.com` — только запасной путь.
+
+После `install` / `dns update` файл уже на месте; отдельно качать не нужно,
+если клон/update с GitHub прошёл.

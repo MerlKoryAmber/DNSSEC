@@ -1,18 +1,17 @@
-# Handoff CURRENT — 2026-10-01 ~22:45 МСК
+# Handoff CURRENT — 2026-10-02 ~00:30 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО:** Linux CLI menu по паттерну squid-panel —
-`dns.sh` → `/usr/bin/dns`, плюс `update.sh` / `uninstall.sh`, проводка в
-`install.sh`, docs `docs/patterns/cli-menu-linux.md`.
+**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО:** CLI + update/uninstall на GitHub `main`
+(`821e208`). Lab: `dns update --keep-data` с GitHub + smoke PASS
+(UI/HTTPS/DNS/DoH/backup/pattern).
 
 ## Lab
 
-`192.168.0.178` `/opt/dns` · CLI: `sudo dns` / `sudo dns status`
+`192.168.0.178` `/opt/dns` · `sudo dns`
 
-## Deploy note
+## Git
 
-scp `dns.sh` `update.sh` `uninstall.sh` `install.sh` →
-`chmod +x` + `install -m 755 /opt/dns/dns.sh /usr/bin/dns`.
+https://github.com/MerlKoryAmber/DNSSEC · `main` @ `821e208`

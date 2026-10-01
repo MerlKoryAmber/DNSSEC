@@ -4,6 +4,18 @@ x-logging: &dns-logging
     max-size: "10m"
     max-file: "3"
 
+# Host HTTP(S)_PROXY must NOT leak into containers — breaks service↔service
+# (panel→technitium, technitium→blocky IP, nginx→panel). Clear proxies + NO_PROXY.
+x-proxy-guard: &proxy-guard
+  HTTP_PROXY: ""
+  HTTPS_PROXY: ""
+  http_proxy: ""
+  https_proxy: ""
+  ALL_PROXY: ""
+  all_proxy: ""
+  NO_PROXY: "localhost,127.0.0.1,::1,technitium,blocky,panel,nginx,dns-lab,dns_net,.dns_net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+  no_proxy: "localhost,127.0.0.1,::1,technitium,blocky,panel,nginx,dns-lab,dns_net,.dns_net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
 services:
   technitium:
     image: docker.io/technitium/dns-server:latest
@@ -19,10 +31,11 @@ services:
     volumes:
       - ./config/technitium:/etc/dns
     environment:
-      - DNS_SERVER_DOMAIN=${DNS_SERVER_DOMAIN:-dns-lab}
-      - DNS_SERVER_ADMIN_PASSWORD=
-      - DNS_SERVER_PREF_IPV6=false
-      - DNS_SERVER_OPTIONAL_PROTOCOL_DNS_OVER_HTTP=true
+      <<: *proxy-guard
+      DNS_SERVER_DOMAIN: ${DNS_SERVER_DOMAIN:-dns-lab}
+      DNS_SERVER_ADMIN_PASSWORD: ""
+      DNS_SERVER_PREF_IPV6: "false"
+      DNS_SERVER_OPTIONAL_PROTOCOL_DNS_OVER_HTTP: "true"
     networks:
       - dns_net
     depends_on:
@@ -36,6 +49,8 @@ services:
     # только dns_net — 53 наружу не публикуем (Technitium спереди)
     volumes:
       - ./config/blocky:/app/config:ro
+    environment:
+      <<: *proxy-guard
     command: ["--config", "/app/config/config.yml"]
     networks:
       - dns_net
@@ -49,6 +64,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./config/blocky:/config:ro
+    environment:
+      <<: *proxy-guard
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -71,20 +88,21 @@ services:
     restart: unless-stopped
     logging: *dns-logging
     environment:
-      - TECHNITIUM_URL=${TECHNITIUM_URL:-http://technitium:5380}
-      - PANEL_SESSION_SECRET=${PANEL_SESSION_SECRET:-change-me-lab-secret}
-      - TECHNITIUM_CONFIG_DIR=/var/lib/dns-config
-      - TECHNITIUM_CERT_PATH=/etc/dns/ssl/dns-tls.pfx
-      - BLOCKY_CONFIG_PATH=/var/lib/blocky/config.yml
-      - BLOCKY_UPSTREAM=blocky
-      - PANEL_DATA_DIR=/var/lib/panel
-      - PANEL_TLS_DIR=/var/lib/nginx-ssl
-      - PANEL_NGINX_CONTAINER=dns-nginx
-      - PANEL_HTTPS_PORT=${DNS_UI_TLS_PORT:-9443}
-      - PANEL_HTTP_PORT=${DNS_UI_PORT:-9080}
-      - PANEL_NGINX_GEN_DIR=/var/lib/nginx-generated
-      - DNS_HOST_PROJECT=/opt/dns
-      - DNS_ENV_FILE=/var/lib/panel/host.env
+      <<: *proxy-guard
+      TECHNITIUM_URL: ${TECHNITIUM_URL:-http://technitium:5380}
+      PANEL_SESSION_SECRET: ${PANEL_SESSION_SECRET:-change-me-lab-secret}
+      TECHNITIUM_CONFIG_DIR: /var/lib/dns-config
+      TECHNITIUM_CERT_PATH: /etc/dns/ssl/dns-tls.pfx
+      BLOCKY_CONFIG_PATH: /var/lib/blocky/config.yml
+      BLOCKY_UPSTREAM: blocky
+      PANEL_DATA_DIR: /var/lib/panel
+      PANEL_TLS_DIR: /var/lib/nginx-ssl
+      PANEL_NGINX_CONTAINER: dns-nginx
+      PANEL_HTTPS_PORT: ${DNS_UI_TLS_PORT:-9443}
+      PANEL_HTTP_PORT: ${DNS_UI_PORT:-9080}
+      PANEL_NGINX_GEN_DIR: /var/lib/nginx-generated
+      DNS_HOST_PROJECT: /opt/dns
+      DNS_ENV_FILE: /var/lib/panel/host.env
     volumes:
       - ./config/technitium:/var/lib/dns-config
       - ./config/blocky:/var/lib/blocky
@@ -108,6 +126,8 @@ services:
     ports:
       - "${DNS_UI_PORT:-9080}:80"
       - "${DNS_UI_TLS_PORT:-9443}:443"
+    environment:
+      <<: *proxy-guard
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/panel_locations.conf:/etc/nginx/panel_locations.conf:ro
