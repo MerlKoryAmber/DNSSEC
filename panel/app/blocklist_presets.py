@@ -5,52 +5,52 @@ PRESET_BLOCK_LISTS: list[dict[str, str]] = [
     {
         "kind": "block",
         "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
-        "note": "StevenBlack hosts (ads/malware merge)",
+        "note": "StevenBlack — ads, trackers, malware (merged community hosts)",
     },
     {
         "kind": "block",
         "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/hosts/light.txt",
-        "note": "HaGeZi Light",
+        "note": "HaGeZi Light — ads, trackers, telemetry; light, low breakage",
     },
     {
         "kind": "block",
         "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/hosts/pro.txt",
-        "note": "HaGeZi Pro",
+        "note": "HaGeZi Pro — ads, trackers, malware, scam; recommended default",
     },
     {
         "kind": "block",
         "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/hosts/tif.txt",
-        "note": "HaGeZi Threat Intelligence",
+        "note": "HaGeZi TIF — malware, phishing, C2, cryptojacking (heavy, needs RAM)",
     },
     {
         "kind": "block",
         "url": "https://small.oisd.nl/",
-        "note": "OISD small (ABP)",
+        "note": "OISD small — ads & trackers; compact set",
     },
     {
         "kind": "block",
         "url": "https://big.oisd.nl/",
-        "note": "OISD big (ABP) — heavy",
+        "note": "OISD big — ads & trackers; large set, more false positives",
     },
     {
         "kind": "block",
         "url": "https://urlhaus.abuse.ch/downloads/hostfile/",
-        "note": "URLhaus malware hosts",
+        "note": "URLhaus — hosts known for malware downloads (abuse.ch)",
     },
     {
         "kind": "block",
         "url": "https://phishing.army/download/phishing_army_blocklist_extended.txt",
-        "note": "Phishing Army extended",
+        "note": "Phishing Army — phishing & scam sites (extended)",
     },
     {
         "kind": "block",
         "url": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
-        "note": "AdGuard DNS filter (ABP)",
+        "note": "AdGuard DNS — ads, trackers, phishing (AdGuard DNS rules)",
     },
     {
         "kind": "block",
         "url": "https://someonewhocares.org/hosts/zero/hosts",
-        "note": "SomeoneWhoCares hosts",
+        "note": "SomeoneWhoCares — classic ads & malware hosts",
     },
 ]
 

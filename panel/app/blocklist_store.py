@@ -50,10 +50,10 @@ def read_items() -> list[dict[str, Any]]:
         if isinstance(x, dict):
             n = _normalize_item(x)
             if n:
-                if not n.get("note"):
-                    pn = _preset_note(n["url"])
-                    if pn:
-                        n["note"] = pn
+                # curated captions — always from presets for known URLs
+                pn = _preset_note(n["url"])
+                if pn:
+                    n["note"] = pn
                 out.append(n)
     return out
 
@@ -72,13 +72,12 @@ def write_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if key in seen:
             continue
         seen.add(key)
-        if not n.get("note"):
+        pn = _preset_note(n["url"])
+        if pn:
+            n["note"] = pn
+        elif not n.get("note"):
             if key in prev and prev[key].get("note"):
                 n["note"] = prev[key]["note"]
-            else:
-                pn = _preset_note(n["url"])
-                if pn:
-                    n["note"] = pn
         cleaned.append(n)
     text = yaml.safe_dump({"items": cleaned}, default_flow_style=False, allow_unicode=True, sort_keys=False)
     path.write_text(text, encoding="utf-8")
