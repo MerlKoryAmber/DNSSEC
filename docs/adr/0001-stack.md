@@ -13,7 +13,7 @@
 
 ## Последствия
 
-- DoH на lab: `http://HOST:9080/dns-query` (HTTP через nginx → technitium:8053)
+- DoH на lab: `http(s)://HOST:9080|9443/dns-query` (nginx → **HTTPS** `technitium:443`; Technitium ≥15 не принимает wire DoH на HTTP :8053)
 - DoT: 853/tcp (Technitium)
 - Forwarders UI → Blocky YAML (`strategy: strict`)
 - Не конфликтуем с `/opt/radiusproxy`

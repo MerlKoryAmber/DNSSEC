@@ -1,19 +1,18 @@
-# Handoff CURRENT — 2026-10-01 ~20:20 МСК
+# Handoff CURRENT — 2026-10-01 ~22:45 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО:** Settings → Panel TLS → **Listen**:
-HTTPS port + галка **Enable HTTP** (off = nginx :80 → 301 HTTPS).
-`ui.yml` + `.env` DNS_UI_TLS_PORT + `nginx/generated/http.conf` + recreate nginx.
+**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО:** Linux CLI menu по паттерну squid-panel —
+`dns.sh` → `/usr/bin/dns`, плюс `update.sh` / `uninstall.sh`, проводка в
+`install.sh`, docs `docs/patterns/cli-menu-linux.md`.
 
 ## Lab
 
-`192.168.0.178` `/opt/dns` UI `http://:9080` · `https://:9443`
-(порт / HTTP on-off — из UI Save Listen)
+`192.168.0.178` `/opt/dns` · CLI: `sudo dns` / `sudo dns status`
 
 ## Deploy note
 
-После scp: `docker compose -p dns up -d --build panel` + recreate `nginx`
-(volume `nginx/generated`). Cache UI `?v=40`.
+scp `dns.sh` `update.sh` `uninstall.sh` `install.sh` →
+`chmod +x` + `install -m 755 /opt/dns/dns.sh /usr/bin/dns`.

@@ -74,6 +74,8 @@ window.DnsApi = {
     method: "PUT",
     body: { port: Number(port), httpEnabled: !!httpEnabled },
   }),
+  uiPrefs: () => api("/api/settings/ui"),
+  saveUiPrefs: (body) => api("/api/settings/ui", { method: "PUT", body }),
   blocking: () => api("/api/blocking"),
   saveBlocking: (body) => api("/api/blocking", { method: "PUT", body }),
   forceUpdateBlockLists: () => api("/api/blocking/force-update-lists", { method: "POST", body: {} }),

@@ -1,9 +1,16 @@
+x-logging: &dns-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   technitium:
     image: docker.io/technitium/dns-server:latest
     container_name: dns-technitium
     hostname: dns-lab
     restart: unless-stopped
+    logging: *dns-logging
     ports:
       - "53:53/udp"
       - "53:53/tcp"
@@ -25,6 +32,7 @@ services:
     image: docker.io/spx01/blocky:v0.26
     container_name: dns-blocky
     restart: unless-stopped
+    logging: *dns-logging
     # только dns_net — 53 наружу не публикуем (Technitium спереди)
     volumes:
       - ./config/blocky:/app/config:ro
@@ -37,6 +45,7 @@ services:
     image: docker.io/library/docker:27-cli
     container_name: dns-blocky-watch
     restart: unless-stopped
+    logging: *dns-logging
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./config/blocky:/config:ro
@@ -60,6 +69,7 @@ services:
     build: ./panel
     container_name: dns-panel
     restart: unless-stopped
+    logging: *dns-logging
     environment:
       - TECHNITIUM_URL=${TECHNITIUM_URL:-http://technitium:5380}
       - PANEL_SESSION_SECRET=${PANEL_SESSION_SECRET:-change-me-lab-secret}
@@ -94,6 +104,7 @@ services:
     image: docker.io/library/nginx:1.27-alpine
     container_name: dns-nginx
     restart: unless-stopped
+    logging: *dns-logging
     ports:
       - "${DNS_UI_PORT:-9080}:80"
       - "${DNS_UI_TLS_PORT:-9443}:443"

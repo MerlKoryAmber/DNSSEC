@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     blocky_config_path: str = "/var/lib/blocky/config.yml"
     blocky_upstream: str = "blocky"
     panel_data_dir: str = "/var/lib/panel"
+    technitium_config_dir: str = "/var/lib/dns-config"
 
     class Config:
         env_file = ".env"

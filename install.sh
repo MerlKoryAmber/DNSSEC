@@ -5,6 +5,7 @@ set -euo pipefail
 
 TARGET_DIR="${DNS_INSTALL_DIR:-/opt/dns}"
 UI_PORT="${DNS_UI_PORT:-9080}"
+TLS_PORT="${DNS_UI_TLS_PORT:-9443}"
 DOT_PORT="${DNS_DOT_PORT:-853}"
 COMPOSE_PROJECT="dns"
 
@@ -41,6 +42,9 @@ check_ports() {
   fi
   if port_in_use "$UI_PORT" tcp; then
     die "порт UI ${UI_PORT} занят (не используем 80/443 — они у radiusproxy)"
+  fi
+  if port_in_use "$TLS_PORT" tcp; then
+    die "порт UI HTTPS ${TLS_PORT} занят"
   fi
   for p in 80 443 8000; do
     if port_in_use "$p" tcp; then
@@ -85,11 +89,12 @@ firewall_ports() {
     log "firewalld не активен — пропуск"
     return
   fi
-  log "открываем только порты DNS-стека: 53/tcp+udp, ${DOT_PORT}/tcp, ${UI_PORT}/tcp"
+  log "открываем только порты DNS-стека: 53/tcp+udp, ${DOT_PORT}/tcp, ${UI_PORT}/tcp, ${TLS_PORT}/tcp"
   firewall-cmd --permanent --add-port=53/tcp || true
   firewall-cmd --permanent --add-port=53/udp || true
   firewall-cmd --permanent --add-port="${DOT_PORT}/tcp" || true
   firewall-cmd --permanent --add-port="${UI_PORT}/tcp" || true
+  firewall-cmd --permanent --add-port="${TLS_PORT}/tcp" || true
   firewall-cmd --reload || true
 }
 
@@ -138,11 +143,35 @@ sync_files() {
   fi
   grep -q '^DNS_UI_PORT=' "$TARGET_DIR/.env" || echo "DNS_UI_PORT=${UI_PORT}" >>"$TARGET_DIR/.env"
   sed -i "s/^DNS_UI_PORT=.*/DNS_UI_PORT=${UI_PORT}/" "$TARGET_DIR/.env"
+  if grep -q '^DNS_UI_TLS_PORT=' "$TARGET_DIR/.env"; then
+    sed -i "s/^DNS_UI_TLS_PORT=.*/DNS_UI_TLS_PORT=${TLS_PORT}/" "$TARGET_DIR/.env"
+  else
+    echo "DNS_UI_TLS_PORT=${TLS_PORT}" >>"$TARGET_DIR/.env"
+  fi
   if grep -q '^DNS_DOT_PORT=' "$TARGET_DIR/.env"; then
     sed -i "s/^DNS_DOT_PORT=.*/DNS_DOT_PORT=${DOT_PORT}/" "$TARGET_DIR/.env"
   else
     echo "DNS_DOT_PORT=${DOT_PORT}" >>"$TARGET_DIR/.env"
   fi
+}
+
+install_cli() {
+  if [[ -f "$TARGET_DIR/dns.sh" ]]; then
+    chmod 755 "$TARGET_DIR/dns.sh" "$TARGET_DIR/update.sh" "$TARGET_DIR/uninstall.sh" 2>/dev/null || true
+    install -m 755 "$TARGET_DIR/dns.sh" /usr/bin/dns
+    install -m 755 "$TARGET_DIR/dns.sh" /usr/local/bin/dns 2>/dev/null || true
+    log "CLI menu installed: /usr/bin/dns"
+  else
+    log "WARN: dns.sh missing — CLI not installed"
+  fi
+  mkdir -p /etc/dns
+  cat >/etc/dns/install.env <<EOF
+DNS_UI_PORT=${UI_PORT}
+DNS_UI_TLS_PORT=${TLS_PORT}
+DNS_DOT_PORT=${DOT_PORT}
+INSTALLED_AT=$(date +%Y%m%d%H%M%S)
+EOF
+  chmod 600 /etc/dns/install.env
 }
 
 compose_up() {
@@ -195,23 +224,34 @@ smoke() {
   echo
   echo "============================================"
   echo " DNS Panel:  http://$(hostname -I | awk '{print $1}'):${UI_PORT}/"
+  echo " HTTPS:      https://HOST:${TLS_PORT}/"
   echo " DoH:        http://HOST:${UI_PORT}/dns-query"
   echo " DoT:        HOST:${DOT_PORT}"
   echo " DNS:        HOST:53"
   echo " Login:      admin / admin  (смените пароль)"
   echo " Каталог:    ${TARGET_DIR}"
+  echo " CLI:        /usr/bin/dns   (sudo dns)"
   echo " Чужие стеки не останавливались."
   echo "============================================"
 }
 
 main() {
   need_root
+  # Preserve ports from previous install if env not set
+  if [[ -f /etc/dns/install.env ]]; then
+    # shellcheck disable=SC1091
+    . /etc/dns/install.env
+    UI_PORT="${DNS_UI_PORT:-$UI_PORT}"
+    TLS_PORT="${DNS_UI_TLS_PORT:-$TLS_PORT}"
+    DOT_PORT="${DNS_DOT_PORT:-$DOT_PORT}"
+  fi
   check_other_stacks
   check_ports
   install_docker
   prepare_resolved
   firewall_ports
   sync_files
+  install_cli
   compose_up
   wait_technitium
   init_protocols

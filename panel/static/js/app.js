@@ -7,6 +7,7 @@
   let recordsCache = [];
   let recordsSort = { key: "name", dir: 1 };
   let forwardersList = [];
+  let uiPrefs = { timezone: "Europe/Moscow", options: [] };
 
   function parseRoute() {
     const h = (location.hash || "#/dashboard").replace(/^#/, "");
@@ -17,7 +18,7 @@
     if (parts[0] === "zones") return { name: "zones" };
     if (parts[0] === "forwarders" || parts[0] === "upstream") return { name: "forwarders" };
     if (parts[0] === "protocols" || parts[0] === "client-protocol") return { name: "protocols" };
-    if (parts[0] === "settings") return { name: "settings", tab: parts[1] || "blocking" };
+    if (parts[0] === "settings") return { name: "settings", tab: parts[1] || "general" };
     if (parts[0] === "blocking" || parts[0] === "blocked") {
       if (parts[1] === "log") return { name: "querylog" };
       if (parts[1] === "settings") return { name: "settings", tab: "blocking" };
@@ -161,6 +162,16 @@
   async function ensureAuth() {
     try {
       user = await DnsApi.me();
+      try {
+        const prefs = await DnsApi.uiPrefs();
+        uiPrefs = {
+          timezone: prefs.timezone || "Europe/Moscow",
+          options: Array.isArray(prefs.options) ? prefs.options : [],
+          timezoneLabel: prefs.timezoneLabel || "",
+        };
+      } catch {
+        /* keep default UTC+3 */
+      }
       return true;
     } catch {
       user = null;
@@ -395,16 +406,53 @@
     return v.toLocaleString("ru-RU");
   }
 
+  function dateTzOptions() {
+    const tz = uiPrefs && uiPrefs.timezone;
+    if (!tz || tz === "local") return {};
+    return { timeZone: tz };
+  }
+
+  function asDate(raw) {
+    if (raw instanceof Date) return raw;
+    if (raw == null || raw === "") return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  /** Display timestamps in Settings timezone (default UTC+3 / Europe/Moscow). */
+  function fmtDateTime(raw) {
+    const d = asDate(raw);
+    if (!d) return "—";
+    return d.toLocaleString("ru-RU", {
+      ...dateTzOptions(),
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  }
+
   function fmtChartLabel(raw, labelFormat) {
-    const s = String(raw || "");
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return s;
+    const d = asDate(raw);
+    if (!d) return String(raw || "");
     const pad = (x) => String(x).padStart(2, "0");
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      ...dateTzOptions(),
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(d);
+    const get = (t) => (parts.find((p) => p.type === t) || {}).value || "00";
     const fmt = labelFormat || "HH:mm";
     if (fmt.includes("dd") || fmt.includes("MM") || fmt.includes("yyyy")) {
-      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return `${get("day")}.${get("month")} ${get("hour")}:${get("minute")}`;
     }
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `${get("hour")}:${get("minute")}`;
   }
 
   function sparklineSvg(values, width, height) {
@@ -1384,6 +1432,7 @@
     let page = 1;
     let totalPages = 1;
     let totalEntries = 0;
+    let logAllowed = false;
     // только после Apply — не при наборе текста
     const applied = {
       qname: "",
@@ -1399,10 +1448,10 @@
         <option value="Blocked">Blocked</option>
         <option value="UpstreamBlocked">Upstream blocked</option>
         <option value="CacheBlocked">Cache blocked</option>
-        <option value="Cached">Cached</option>
-        <option value="Recursive">Recursive</option>
-        <option value="Authoritative">Authoritative</option>
-        <option value="">Any type</option>
+        <option value="Cached" data-allowed-only="1">Cached</option>
+        <option value="Recursive" data-allowed-only="1">Recursive</option>
+        <option value="Authoritative" data-allowed-only="1">Authoritative</option>
+        <option value="" data-allowed-only="1">Any type</option>
       </select>
       <select id="logProto" class="toolbar-select" title="Protocol">
         <option value="">Any protocol</option>
@@ -1414,6 +1463,9 @@
       <button type="button" class="btn" id="btnLogApply">Apply</button>
       <button type="button" class="btn btn-secondary" id="btnLogClear">Clear</button>
       <div class="toolbar-spacer"></div>
+      <label class="inline toolbar-check" title="Off = store only blocked/dropped in DB">
+        <input type="checkbox" id="logAllowedToggle" /> Log allowed
+      </label>
       <button type="button" class="btn btn-secondary" id="btnLogPrev">←</button>
       <span class="dash-pill muted" id="logPageMeta">—</span>
       <button type="button" class="btn btn-secondary" id="btnLogNext">→</button>
@@ -1423,7 +1475,23 @@
     const box = document.getElementById("logBox");
     const typeSel = document.getElementById("logType");
     const protoSel = document.getElementById("logProto");
+    const allowedToggle = document.getElementById("logAllowedToggle");
     typeSel.value = applied.responseType;
+
+    function syncAllowedTypeOptions() {
+      typeSel.querySelectorAll("option[data-allowed-only]").forEach((opt) => {
+        opt.disabled = !logAllowed;
+        opt.hidden = !logAllowed;
+      });
+      if (!logAllowed) {
+        const v = typeSel.value;
+        if (!v || !/Blocked/i.test(v)) {
+          typeSel.value = "Blocked";
+          applied.responseType = "Blocked";
+        }
+      }
+      allowedToggle.checked = !!logAllowed;
+    }
 
     function readDraft() {
       return {
@@ -1454,7 +1522,9 @@
       if (!entries.length) {
         box.innerHTML = `<div class="empty"><strong>No queries</strong><span>${
           totalEntries === 0
-            ? "Nothing matched. Widen filters or Apply after Clear."
+            ? (logAllowed
+              ? "Nothing matched. Widen filters or Apply after Clear."
+              : "Only blocked queries are stored. Turn on «Log allowed» to record the rest.")
             : "Nothing on this page."
         }</span></div>`;
         return;
@@ -1474,7 +1544,7 @@
           </thead>
           <tbody>
             ${entries.map((e) => {
-              const ts = e.timestamp ? new Date(e.timestamp).toLocaleString() : "—";
+              const ts = e.timestamp ? fmtDateTime(e.timestamp) : "—";
               const qn = e.qname || "—";
               const rt = e.responseType || e.rcode || "—";
               const isBlocked = /Blocked/i.test(String(e.responseType || ""));
@@ -1525,6 +1595,10 @@
         page = Number(data.pageNumber) || page;
         totalPages = Number(data.totalPages) || 1;
         totalEntries = Number(data.totalEntries) || 0;
+        if (typeof data.logAllowedQueries === "boolean") {
+          logAllowed = data.logAllowedQueries;
+          syncAllowedTypeOptions();
+        }
         if (data.logger && data.logger.installedNow) {
           toast("Query Logs (Sqlite) installed");
         }
@@ -1567,7 +1641,7 @@
       const d = readDraft();
       applied.qname = d.qname;
       applied.clientIp = d.clientIp;
-      applied.responseType = d.responseType; // "" = Any — не сбрасывать
+      applied.responseType = d.responseType;
       applied.protocol = d.protocol;
       page = 1;
       loadLog();
@@ -1576,12 +1650,35 @@
     function clearFilters() {
       applied.qname = "";
       applied.clientIp = "";
-      applied.responseType = "";
+      applied.responseType = logAllowed ? "" : "Blocked";
       applied.protocol = "";
       writeDraft(applied);
       page = 1;
       loadLog();
     }
+
+    allowedToggle.addEventListener("change", async () => {
+      const want = allowedToggle.checked;
+      allowedToggle.disabled = true;
+      try {
+        const r = await DnsApi.saveUiPrefs({ logAllowedQueries: want });
+        logAllowed = !!r.logAllowedQueries;
+        syncAllowedTypeOptions();
+        const purged = r.logFilter && r.logFilter.purgedNonBlocked;
+        toast(
+          logAllowed
+            ? "Logging all DNS queries"
+            : `Blocked-only logging${purged ? ` · purged ${purged} allowed` : ""}`
+        );
+        page = 1;
+        await loadLog();
+      } catch (ex) {
+        allowedToggle.checked = !want;
+        toast(ex.message, "error");
+      } finally {
+        allowedToggle.disabled = false;
+      }
+    });
 
     document.getElementById("btnLogApply").addEventListener("click", applyFilters);
     document.getElementById("btnLogClear").addEventListener("click", clearFilters);
@@ -1598,13 +1695,15 @@
     document.getElementById("btnLogNext").addEventListener("click", () => {
       if (page < totalPages) { page += 1; loadLog(); }
     });
+    syncAllowedTypeOptions();
     await loadLog();
   }
 
   async function viewSettings(initialTab) {
-    const tab = ["blocking", "panel-tls"].includes(initialTab) ? initialTab : "blocking";
+    const tab = ["general", "blocking", "panel-tls"].includes(initialTab) ? initialTab : "general";
     shell("Settings", `
       <div class="subnav">
+        <button type="button" class="subnav-item ${tab === "general" ? "active" : ""}" data-stab="general">General</button>
         <button type="button" class="subnav-item ${tab === "blocking" ? "active" : ""}" data-stab="blocking">Blocking</button>
         <button type="button" class="subnav-item ${tab === "panel-tls" ? "active" : ""}" data-stab="panel-tls">Panel TLS</button>
       </div>
@@ -1620,6 +1719,129 @@
 
     const inner = document.getElementById("setInner");
     const extra = document.getElementById("setToolbarExtra");
+
+    if (tab === "general") {
+      extra.innerHTML = `<button type="button" class="btn" id="btnSaveUiPrefs">Save</button>`;
+      try {
+        const prefs = await DnsApi.uiPrefs();
+        uiPrefs = {
+          timezone: prefs.timezone || "Europe/Moscow",
+          options: Array.isArray(prefs.options) ? prefs.options : [],
+          timezoneLabel: prefs.timezoneLabel || "",
+        };
+        const opts = (uiPrefs.options.length
+          ? uiPrefs.options
+          : [
+              { value: "Europe/Moscow", label: "UTC+3 (Moscow)" },
+              { value: "UTC", label: "UTC" },
+              { value: "local", label: "Browser local" },
+            ]
+        ).map((o) => `<option value="${escapeHtml(o.value)}" ${o.value === uiPrefs.timezone ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
+        const sample = fmtDateTime(new Date());
+        const maxRec = Number(prefs.maxLogRecords) || 2500000;
+        const maxDays = Number(prefs.maxLogDays);
+        const daysVal = Number.isFinite(maxDays) ? maxDays : 90;
+        const estLabel = prefs.logDbEstimateLabel || "";
+        inner.innerHTML = `
+          <div class="form-card">
+            <p class="section-title">Time zone</p>
+            <div class="proto-list">
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label for="uiTimezone">Display time zone</label>
+                    <select id="uiTimezone">${opts}</select>
+                    <div class="hint">Default UTC+3 (Moscow). Applies to dashboard charts, query log, certificates, blocking timestamps.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <label>Sample now</label>
+                  <div class="cert-status is-set" id="uiTzSample">${escapeHtml(sample)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-card" style="margin-top:var(--space-md)">
+            <p class="section-title">Query log storage</p>
+            <div class="proto-list">
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label for="uiMaxLogRecords">Max records</label>
+                    <input type="number" id="uiMaxLogRecords" min="1000" max="20000000" step="1000" value="${maxRec}" />
+                    <div class="hint">Default 2 500 000 ≈ ~2 GiB budget (~800 B/row). What hits first — records or days — wins.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label for="uiMaxLogDays">Max age (days)</label>
+                    <input type="number" id="uiMaxLogDays" min="0" max="3650" value="${daysVal}" />
+                    <div class="hint">0 = no age cleanup. Default 90.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <label>Estimate</label>
+                  <div class="cert-status is-set" id="uiLogEst">${escapeHtml(estLabel)}</div>
+                  <div class="hint">«Log allowed» off still keeps only blocked in DB; this cap is the hard ceiling.</div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        const sel = document.getElementById("uiTimezone");
+        const recInp = document.getElementById("uiMaxLogRecords");
+        const daysInp = document.getElementById("uiMaxLogDays");
+        const estEl = document.getElementById("uiLogEst");
+        const refreshSample = () => {
+          const prev = uiPrefs.timezone;
+          uiPrefs.timezone = sel.value;
+          document.getElementById("uiTzSample").textContent = fmtDateTime(new Date());
+          uiPrefs.timezone = prev;
+        };
+        const refreshEst = () => {
+          const n = Number(recInp.value) || 0;
+          const mib = (n * 800) / (1024 * 1024);
+          estEl.textContent = `~${Math.round(mib)} MiB @ ~800 B/row`;
+        };
+        sel.addEventListener("change", refreshSample);
+        recInp.addEventListener("input", refreshEst);
+        document.getElementById("btnSaveUiPrefs").addEventListener("click", async () => {
+          const btn = document.getElementById("btnSaveUiPrefs");
+          btn.disabled = true;
+          try {
+            const r = await DnsApi.saveUiPrefs({
+              timezone: sel.value,
+              maxLogRecords: Number(recInp.value),
+              maxLogDays: Number(daysInp.value),
+            });
+            uiPrefs = {
+              timezone: r.timezone || sel.value,
+              options: Array.isArray(r.options) ? r.options : uiPrefs.options,
+              timezoneLabel: r.timezoneLabel || "",
+            };
+            const ret = r.logRetention && r.logRetention.applied;
+            toast(
+              `Saved · ${uiPrefs.timezoneLabel || uiPrefs.timezone}` +
+                ` · logs ${fmtNum(r.maxLogRecords)} / ${r.maxLogDays}d` +
+                (ret ? " · applied to Query Logs" : "")
+            );
+            await viewSettings("general");
+          } catch (ex) {
+            toast(ex.message, "error");
+            btn.disabled = false;
+          }
+        });
+      } catch (ex) {
+        inner.innerHTML = `<div class="empty"><strong>Failed to load</strong><span>${escapeHtml(ex.message)}</span></div>`;
+      }
+      return;
+    }
 
     if (tab === "panel-tls") {
       extra.innerHTML = `<button type="button" class="btn" id="btnUploadPanelTls">Upload cert</button>`;
@@ -1647,7 +1869,7 @@
                   <div class="dash-mini-stats">
                     <div><span>Subject</span><strong>${escapeHtml(st.subject || "—")}</strong></div>
                     <div><span>Issuer</span><strong>${escapeHtml(st.issuer || "—")}</strong></div>
-                    <div><span>Valid until</span><strong>${escapeHtml(st.notAfter ? new Date(st.notAfter).toLocaleString() : "—")}</strong></div>
+                    <div><span>Valid until</span><strong>${escapeHtml(st.notAfter ? fmtDateTime(st.notAfter) : "—")}</strong></div>
                     <div><span>HTTPS URL</span><strong>https://&lt;host&gt;:${httpsPort}/</strong></div>
                   </div>
                 </div>
@@ -1750,7 +1972,7 @@
         const custom = Array.isArray(s.customBlockingAddresses) ? s.customBlockingAddresses.join("\n") : "";
         const btype = s.blockingType || "NxDomain";
         const till = s.temporaryDisableBlockingTill
-          ? new Date(s.temporaryDisableBlockingTill).toLocaleString()
+          ? fmtDateTime(s.temporaryDisableBlockingTill)
           : "—";
         inner.innerHTML = `
           <div class="form-card">
@@ -1822,7 +2044,7 @@
           try {
             const r = await DnsApi.temporaryDisableBlocking(minutes);
             const t = (r.response || {}).temporaryDisableBlockingTill;
-            document.getElementById("blkTill").textContent = t ? new Date(t).toLocaleString() : "—";
+            document.getElementById("blkTill").textContent = t ? fmtDateTime(t) : "—";
             toast("Blocking temporarily disabled");
           } catch (ex) { toast(ex.message, "error"); }
         });
@@ -1939,7 +2161,7 @@
           if (ka > kb) return 1 * listSort.dir;
           return 0;
         });
-        const nextLabel = nextUpdatedOn ? new Date(nextUpdatedOn).toLocaleString() : "—";
+        const nextLabel = nextUpdatedOn ? fmtDateTime(nextUpdatedOn) : "—";
         const nextHint = document.getElementById("blkNextHint");
         if (nextHint) nextHint.textContent = "Next: " + nextLabel;
         const iv = document.getElementById("blkInterval");

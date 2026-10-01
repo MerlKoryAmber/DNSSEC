@@ -1,35 +1,86 @@
-# DNS Panel + Technitium (lab)
+# DNS Panel (Technitium + Blocky)
 
-Свой web-UI (FastAPI + JS) управляет Technitium по API. Консоль Technitium наружу не отдаётся.
+Свой web-UI (FastAPI + JS) управляет DNS-стеком. Консоль Technitium (`:5380`) наружу не отдаётся.
 
-## Lab-порты (CentOS 9)
+Репозиторий: https://github.com/MerlKoryAmber/DNSSEC
 
-На `192.168.0.178` заняты **80/443/8000** (`radiusproxy`) — их не трогаем.
+## Стек
 
-| Порт | Назначение |
-|------|------------|
-| 9080 | UI + DoH `/dns-query` |
-| 53 | классический DNS |
-| 853 | DoT |
-
-Каталог установки: `/opt/dns`.
-
-## Установка на lab
-
-```bash
-# с рабочей машины (пример)
-scp -r ./dns root@192.168.0.178:/opt/dns
-ssh root@192.168.0.178 'bash /opt/dns/install.sh'
+```
+Клиент DNS  → Technitium :53 / :853 (DoT) / DoH
+                ├─ auth zones → локально
+                └─ рекурсия → Blocky (внутри compose)
+Клиент UI   → nginx :9080 / :9443 → static + /api → panel
 ```
 
-`install.sh` не останавливает чужие контейнеры и не пишет в `/opt/radiusproxy`.
+## Lab
 
-## Вход
+| | |
+|--|--|
+| Хост | `192.168.0.178` (CentOS Stream 9) |
+| Каталог | `/opt/dns` |
+| UI HTTP | http://192.168.0.178:9080/ |
+| UI HTTPS | https://192.168.0.178:9443/ |
+| DoH | `http://HOST:9080/dns-query` |
+| DoT | `HOST:853` |
+| DNS | `HOST:53` |
 
-Открыть `http://192.168.0.178:9080/` — логин Technitium (по умолчанию `admin` / `admin`).
+Чужие стеки (`/opt/radiusproxy`, `/opt/spm`, порты 80/443/8000) **не трогаем**.
 
-Разделы: Зоны (Primary/Secondary/Stub/Forwarder), записи, апстрим (53+DoT+DoH), протоколы DoH/DoT.
+Логин панели = аккаунт Technitium (lab: `admin` / `admin` — смените).
 
-## Правила агента
+## Установка с GitHub
 
-Скелет: `docs/SKELETON.md`. Метод: `CLAUDE.md`. UX: `docs/design/UI_UX.md`. Карта: `docs/CODEMAP.md`.
+```bash
+# на сервере (root)
+dnf install -y git   # если ещё нет
+cd /tmp
+git clone --depth 1 https://github.com/MerlKoryAmber/DNSSEC.git /opt/dns.src
+bash /opt/dns.src/install.sh
+# install копирует/поднимает стек в /opt/dns и ставит CLI
+```
+
+Либо уже лежащий каталог:
+
+```bash
+bash /opt/dns/install.sh
+```
+
+## CLI меню
+
+После install:
+
+```bash
+sudo dns              # интерактивное меню
+sudo dns status
+sudo dns url
+sudo dns update       # с GitHub, сохранить данные
+sudo dns update-wipe  # update + wipe Technitium data (2× confirm)
+sudo dns backup
+sudo dns fix-forwarder
+sudo dns restart
+sudo dns uninstall
+sudo dns help
+```
+
+Бинарник: `/usr/bin/dns` ← `/opt/dns/dns.sh`.  
+Паттерн: `docs/patterns/cli-menu-linux.md` (как в squid-panel).
+
+| Скрипт | Назначение |
+|--------|------------|
+| `install.sh` | первичная установка + CLI + firewall |
+| `update.sh` | clone GitHub → rsync кода (keep `.env` / technitium / TLS) |
+| `uninstall.sh` | compose down + remove CLI (+ optional wipe `/opt/dns`) |
+| `dns.sh` | меню и подкоманды |
+
+## Разделы UI
+
+Dashboard · Zones · Forwarders · Client protocol · Blocking · Query log · Settings  
+(General: timezone + query log storage; Panel TLS / Listen; Blocking)
+
+## Документация
+
+- Скелет агента: `docs/SKELETON.md`
+- Карта кода: `docs/CODEMAP.md`
+- UX: `docs/design/UI_UX.md`
+- Метод: `CLAUDE.md`

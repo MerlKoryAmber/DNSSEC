@@ -312,6 +312,59 @@ async def put_panel_https_port(
     return {"status": "ok", **st, "apply": result}
 
 
+class UiPrefsBody(BaseModel):
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
+    logAllowedQueries: bool | None = None
+    maxLogRecords: int | None = None
+    maxLogDays: int | None = None
+
+
+@router.get("/settings/ui")
+async def get_ui_prefs(_client: TechnitiumClient = Depends(get_client)):
+    from . import ui_prefs
+
+    return {"status": "ok", **ui_prefs.status()}
+
+
+@router.put("/settings/ui")
+async def put_ui_prefs(body: UiPrefsBody, _client: TechnitiumClient = Depends(get_client)):
+    from . import query_logs as ql
+    from . import ui_prefs
+
+    if (
+        body.timezone is None
+        and body.logAllowedQueries is None
+        and body.maxLogRecords is None
+        and body.maxLogDays is None
+    ):
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    try:
+        if body.timezone is not None:
+            ui_prefs.write_timezone(body.timezone)
+        filter_result = None
+        if body.logAllowedQueries is not None:
+            ui_prefs.write_log_allowed_queries(body.logAllowedQueries)
+            filter_result = ql.apply_log_allowed_mode(log_allowed=body.logAllowedQueries)
+        retention_result = None
+        if body.maxLogRecords is not None or body.maxLogDays is not None:
+            ui_prefs.write_log_retention(
+                max_log_records=body.maxLogRecords,
+                max_log_days=body.maxLogDays,
+            )
+            try:
+                retention_result = await ql.apply_retention(_client)
+            except TechnitiumError as exc:
+                raise _map_error(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    out = {"status": "ok", **ui_prefs.status()}
+    if filter_result is not None:
+        out["logFilter"] = filter_result
+    if retention_result is not None:
+        out["logRetention"] = retention_result
+    return out
+
+
 class ForwarderItem(BaseModel):
     addr: str = Field(min_length=1)
     kind: str = Field(description="classic|dot|doh")
@@ -861,8 +914,12 @@ async def get_blocking_log(
         raise _map_error(exc) from exc
 
     resp = raw.get("response") or raw
+    from . import ui_prefs
+
+    log_allowed = ui_prefs.read_log_allowed_queries()
     return {
         "logger": logger,
+        "logAllowedQueries": log_allowed,
         "pageNumber": resp.get("pageNumber") or page,
         "totalPages": resp.get("totalPages") or 1,
         "totalEntries": resp.get("totalEntries") or 0,

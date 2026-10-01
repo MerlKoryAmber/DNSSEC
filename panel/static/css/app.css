@@ -409,6 +409,19 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   z-index: 45;
 }
 .toolbar-spacer { flex: 1 1 auto; min-width: 0; }
+.toolbar .toolbar-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ir-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.toolbar .toolbar-check input { margin: 0; }
 .toolbar .filter-input,
 .toolbar .toolbar-select,
 .toolbar .dash-period {

@@ -63,9 +63,17 @@
 | `dns-blocky` | recursive upstreams | **нет** | `config/blocky/config.yml`, `strategy: strict` |
 | `dns-blocky-watch` | inotify → `docker restart dns-blocky` | — | docker.sock |
 | `dns-panel` | FastAPI | internal `:8000` | mounts `config/blocky` + `config/technitium` |
-| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:8053; TLS `config/nginx/ssl` |
+| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:443 (HTTPS DoH); TLS `config/nginx/ssl` |
 
 Сеть: `dns_net`. Blocky **не** публиковать на host :53.
+
+**Лимиты логов (диск):**
+| Источник | Лимит |
+|----------|--------|
+| Docker `json-file` (все сервисы) | `max-size: 10m`, `max-file: 3` (~150 MB стек) |
+| Technitium file log | `maxLogFileDays=30`, `logQueries=false` |
+| Technitium stats | `maxStatFileDays=90` |
+| Query Logs Sqlite | `maxLogRecords=2 500 000` (~2 GiB @ ~800 B/row), `maxLogDays=90`; Settings → General; **по умолчанию только blocked** (`logAllowedQueries=false`) |
 
 ---
 
@@ -86,6 +94,11 @@
 | Путь | Зачем |
 |------|--------|
 | `docker-compose.yml` | сервисы, env, volumes |
+| `install.sh` | первичная установка + CLI `/usr/bin/dns` |
+| `update.sh` | update с GitHub (keep / wipe Technitium data) |
+| `uninstall.sh` | compose down + remove CLI (+ optional wipe `/opt/dns`) |
+| `dns.sh` | interactive CLI menu → `/usr/bin/dns` |
+| `docs/patterns/cli-menu-linux.md` | паттерн меню (из squid-panel) |
 | `config/blocky/config.yml` | upstreams Blocky (пишет panel) |
 | `config/technitium/` | данные Technitium (volume) |
 | `nginx/nginx.conf` | proxy UI/API/DoH + include generated HTTP |
@@ -105,6 +118,7 @@
 | `query_logs.py` | ensure Query Logs (Sqlite) + resolve logger |
 | `host_stats.py` | CPU/RAM (/proc) + probes Technitium/Blocky/Nginx |
 | `panel_tls.py` | Panel UI TLS (nginx PEM) + Listen (HTTPS port, HTTP on/off) + HUP/recreate nginx |
+| `ui_prefs.py` | UI prefs in `ui.yml` (timezone display, default Europe/Moscow) |
 | `tls_store.py` | .pfx write + PEM key/chain → PKCS#12 |
 
 ### Panel UI (`panel/static/`)
@@ -183,6 +197,9 @@
 - **Client DoT/DoH:** нужен `.pfx` в `config/technitium/ssl/dns-tls.pfx`. Без
   сертификата DoT на :853 отвечает без peer cert / handshake fail. После
   загрузки cert — restart Technitium если TLS не поднялся.
+  **DoH wire:** Technitium ≥15 — только HTTPS (`enableDnsOverHttps`, порт 443
+  внутри контейнера). nginx `/dns-query` → `https://technitium:443` (`proxy_ssl_verify off`).
+  HTTP `:8053` / `enableDnsOverHttp` → 403 «supported only on HTTPS».
 - **Panel TLS:** PEM `config/nginx/ssl/panel.{crt,key}`; HTTPS `:9443` (порт из UI).
   HTTP on/off — `nginx/generated/http.conf` (serve vs 301→HTTPS). Save Listen → HUP + recreate nginx.
 - **Upstream DoT (исходящий :853):** с lab `192.168.0.178` TCP/853 наружу =

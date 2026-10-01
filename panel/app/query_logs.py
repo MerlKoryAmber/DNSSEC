@@ -17,13 +17,78 @@ QUERY_LOGS_APP_URL_FALLBACK = (
 DEFAULT_CONFIG = {
     "enableLogging": True,
     "maxQueueSize": 200000,
-    "maxLogDays": 14,
-    "maxLogRecords": 200000,
+    # Overridden from ui_prefs on ensure/save (~2 GiB budget → 2.5M rows)
+    "maxLogDays": 90,
+    "maxLogRecords": 2_500_000,
     "enableVacuum": False,
     "useInMemoryDb": False,
     "sqliteDbPath": "querylogs.db",
     "connectionString": "Data Source='{sqliteDbPath}'; Cache=Shared;",
 }
+
+# Technitium DnsServerResponseType (README Query Logs Sqlite)
+_BLOCKED_RESPONSE_TYPE_IDS = (4, 5, 6, 7)  # Blocked, UpstreamBlocked, UpstreamBlockedCached, Dropped
+_TRIGGER_NAME = "dns_panel_blocked_only"
+
+
+def querylogs_db_path() -> Path:
+    cfg = Path(getattr(settings, "technitium_config_dir", None) or "/var/lib/dns-config")
+    return cfg / "apps" / QUERY_LOGS_APP_NAME / "querylogs.db"
+
+
+def apply_log_allowed_mode(*, log_allowed: bool) -> dict[str, Any]:
+    """
+    Stock Query Logs app logs ALL queries. When log_allowed=False (default),
+    keep only blocked/dropped rows via SQLite trigger + purge.
+    """
+    path = querylogs_db_path()
+    if not path.is_file():
+        return {"applied": False, "reason": "db-missing", "path": str(path), "logAllowedQueries": log_allowed}
+
+    import sqlite3
+
+    keep = ",".join(str(x) for x in _BLOCKED_RESPONSE_TYPE_IDS)
+    deleted = 0
+    try:
+        conn = sqlite3.connect(str(path), timeout=5.0)
+        try:
+            conn.execute("PRAGMA busy_timeout=5000")
+            if log_allowed:
+                conn.execute(f'DROP TRIGGER IF EXISTS "{_TRIGGER_NAME}"')
+            else:
+                conn.execute(f'DROP TRIGGER IF EXISTS "{_TRIGGER_NAME}"')
+                conn.execute(
+                    f"""
+                    CREATE TRIGGER "{_TRIGGER_NAME}"
+                    AFTER INSERT ON dns_logs
+                    WHEN NEW.response_type NOT IN ({keep})
+                    BEGIN
+                      DELETE FROM dns_logs WHERE dlid = NEW.dlid;
+                    END
+                    """
+                )
+                cur = conn.execute(
+                    f"DELETE FROM dns_logs WHERE response_type NOT IN ({keep})"
+                )
+                deleted = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return {
+            "applied": False,
+            "reason": str(exc),
+            "path": str(path),
+            "logAllowedQueries": log_allowed,
+        }
+    return {
+        "applied": True,
+        "path": str(path),
+        "logAllowedQueries": log_allowed,
+        "purgedNonBlocked": deleted,
+        "mode": "all" if log_allowed else "blocked-only",
+    }
+
 
 
 def find_query_logger(apps: list[dict[str, Any]]) -> tuple[str, str] | None:
@@ -68,6 +133,11 @@ def vendor_zip_candidates() -> list[Path]:
 
 
 async def _enable_logging(client: TechnitiumClient, name: str) -> None:
+    from . import ui_prefs
+
+    want_records = ui_prefs.read_max_log_records()
+    want_days = ui_prefs.read_max_log_days()
+
     try:
         cfg_raw = await client.apps_config_get(name)
         cfg_text = (cfg_raw.get("response") or cfg_raw).get("config")
@@ -77,12 +147,16 @@ async def _enable_logging(client: TechnitiumClient, name: str) -> None:
     need_set = False
     if not cfg_text:
         cfg = dict(DEFAULT_CONFIG)
+        cfg["maxLogRecords"] = want_records
+        cfg["maxLogDays"] = want_days
         need_set = True
     else:
         try:
             cfg = json.loads(cfg_text)
         except json.JSONDecodeError:
             cfg = dict(DEFAULT_CONFIG)
+            cfg["maxLogRecords"] = want_records
+            cfg["maxLogDays"] = want_days
             need_set = True
         else:
             if not cfg.get("enableLogging", True):
@@ -92,9 +166,39 @@ async def _enable_logging(client: TechnitiumClient, name: str) -> None:
                 if k not in cfg:
                     cfg[k] = v
                     need_set = True
+            if int(cfg.get("maxLogRecords") or 0) != want_records:
+                cfg["maxLogRecords"] = want_records
+                need_set = True
+            if int(cfg.get("maxLogDays") or -1) != want_days:
+                cfg["maxLogDays"] = want_days
+                need_set = True
     if need_set:
         await client.apps_config_set(name, json.dumps(cfg, indent=2))
 
+    # Apply blocked-only DB filter (default) unless UI prefs allow all queries
+    try:
+        apply_log_allowed_mode(log_allowed=ui_prefs.read_log_allowed_queries())
+    except Exception:
+        pass
+
+
+async def apply_retention(client: TechnitiumClient) -> dict[str, Any]:
+    """Push maxLogRecords / maxLogDays from ui.yml into Query Logs app config."""
+    listed = await client.apps_list()
+    apps = (listed.get("response") or listed).get("apps") or []
+    found = find_query_logger(apps)
+    if not found:
+        return {"applied": False, "reason": "app-missing"}
+    name, _cp = found
+    await _enable_logging(client, name)
+    from . import ui_prefs
+
+    return {
+        "applied": True,
+        "name": name,
+        "maxLogRecords": ui_prefs.read_max_log_records(),
+        "maxLogDays": ui_prefs.read_max_log_days(),
+    }
 
 async def install_from_zip(client: TechnitiumClient, zip_bytes: bytes, filename: str = "app.zip") -> dict[str, Any]:
     await client.apps_install_zip(QUERY_LOGS_APP_NAME, zip_bytes, filename=filename)
@@ -110,6 +214,7 @@ async def install_from_zip(client: TechnitiumClient, zip_bytes: bytes, filename:
         "classPath": class_path,
         "installedNow": True,
         "enableLogging": True,
+        "logAllowedQueries": False,
         "source": "upload",
     }
 
