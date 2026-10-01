@@ -1,0 +1,12 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+panel/.venv/
+config/technitium/
+config/nginx/ssl/*
+!config/nginx/ssl/.gitkeep
+*.log
+.DS_Store
+.cursor/
+tmp-*.sh

@@ -1,0 +1,115 @@
+services:
+  technitium:
+    image: docker.io/technitium/dns-server:latest
+    container_name: dns-technitium
+    hostname: dns-lab
+    restart: unless-stopped
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "${DNS_DOT_PORT:-853}:853/tcp"
+      - "127.0.0.1:5380:5380"
+    volumes:
+      - ./config/technitium:/etc/dns
+    environment:
+      - DNS_SERVER_DOMAIN=${DNS_SERVER_DOMAIN:-dns-lab}
+      - DNS_SERVER_ADMIN_PASSWORD=
+      - DNS_SERVER_PREF_IPV6=false
+      - DNS_SERVER_OPTIONAL_PROTOCOL_DNS_OVER_HTTP=true
+    networks:
+      - dns_net
+    depends_on:
+      - blocky
+
+  blocky:
+    image: docker.io/spx01/blocky:v0.26
+    container_name: dns-blocky
+    restart: unless-stopped
+    # только dns_net — 53 наружу не публикуем (Technitium спереди)
+    volumes:
+      - ./config/blocky:/app/config:ro
+    command: ["--config", "/app/config/config.yml"]
+    networks:
+      - dns_net
+
+  # Перезапуск blocky при смене YAML (panel пишет файл)
+  blocky-watch:
+    image: docker.io/library/docker:27-cli
+    container_name: dns-blocky-watch
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config/blocky:/config:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache inotify-tools >/dev/null
+        echo "watching /config/config.yml"
+        while true; do
+          inotifywait -e modify,close_write,move /config/config.yml || sleep 2
+          echo "reload blocky"
+          docker restart dns-blocky || true
+          sleep 2
+        done
+    depends_on:
+      - blocky
+    networks:
+      - dns_net
+
+  panel:
+    build: ./panel
+    container_name: dns-panel
+    restart: unless-stopped
+    environment:
+      - TECHNITIUM_URL=${TECHNITIUM_URL:-http://technitium:5380}
+      - PANEL_SESSION_SECRET=${PANEL_SESSION_SECRET:-change-me-lab-secret}
+      - TECHNITIUM_CONFIG_DIR=/var/lib/dns-config
+      - TECHNITIUM_CERT_PATH=/etc/dns/ssl/dns-tls.pfx
+      - BLOCKY_CONFIG_PATH=/var/lib/blocky/config.yml
+      - BLOCKY_UPSTREAM=blocky
+      - PANEL_DATA_DIR=/var/lib/panel
+      - PANEL_TLS_DIR=/var/lib/nginx-ssl
+      - PANEL_NGINX_CONTAINER=dns-nginx
+      - PANEL_HTTPS_PORT=${DNS_UI_TLS_PORT:-9443}
+      - PANEL_HTTP_PORT=${DNS_UI_PORT:-9080}
+      - PANEL_NGINX_GEN_DIR=/var/lib/nginx-generated
+      - DNS_HOST_PROJECT=/opt/dns
+      - DNS_ENV_FILE=/var/lib/panel/host.env
+    volumes:
+      - ./config/technitium:/var/lib/dns-config
+      - ./config/blocky:/var/lib/blocky
+      - ./config/panel:/var/lib/panel
+      - ./config/nginx/ssl:/var/lib/nginx-ssl
+      - ./nginx/generated:/var/lib/nginx-generated
+      - ./.env:/var/lib/panel/host.env
+      - ./vendor:/opt/dns/vendor:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - technitium
+      - blocky
+    networks:
+      - dns_net
+
+  nginx:
+    image: docker.io/library/nginx:1.27-alpine
+    container_name: dns-nginx
+    restart: unless-stopped
+    ports:
+      - "${DNS_UI_PORT:-9080}:80"
+      - "${DNS_UI_TLS_PORT:-9443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/panel_locations.conf:/etc/nginx/panel_locations.conf:ro
+      - ./nginx/generated:/etc/nginx/generated:ro
+      - ./config/nginx/ssl:/etc/nginx/ssl:ro
+      - ./panel/static:/usr/share/nginx/html:ro
+    depends_on:
+      - panel
+      - technitium
+    networks:
+      - dns_net
+
+networks:
+  dns_net:
+    name: dns_net
+    driver: bridge

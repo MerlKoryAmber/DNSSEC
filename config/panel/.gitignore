@@ -1,0 +1,3 @@
+# Panel local data (blocklists.yml и пр.) — не секреты
+*
+!.gitignore

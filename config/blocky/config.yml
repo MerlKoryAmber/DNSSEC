@@ -1,0 +1,21 @@
+upstreams:
+  strategy: strict
+  timeout: 2s
+  groups:
+    default:
+      - https://cloudflare-dns.com/dns-query
+      - tcp-tls:1.1.1.1:853
+      - 8.8.8.8
+
+ports:
+  # только внутри compose; на host не публикуем
+  dns: 53
+  http: 4000
+
+log:
+  level: info
+
+caching:
+  minTime: 5m
+  maxTime: 30m
+  prefetching: true
