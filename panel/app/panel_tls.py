@@ -18,8 +18,8 @@ from cryptography.x509.oid import NameOID
 
 MAX_PEM = 256 * 1024
 DEFAULT_HTTPS_PORT = 9443
-# HTTP UI + DNS + чужие lab-сервисы — не занимать
-_BLOCKED_PORTS = {53, 9080, 5380, 8000, 1812, 1813}
+# Reserved host ports (radiusproxy / DNS / lab) — HTTPS must not collide
+_BLOCKED_PORTS = {53, 80, 443, 8000, 1812, 1813, 5380}
 
 
 def ssl_dir() -> Path:

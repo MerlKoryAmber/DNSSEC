@@ -278,12 +278,222 @@ cmd_fix_forwarder() {
   fi
 }
 
+set_env_kv() {
+  local file="$1" key="$2" val="$3"
+  local tmp
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+  tmp="$(mktemp)"
+  if grep -qE "^[[:space:]]*${key}=" "$file" 2>/dev/null; then
+    sed -E "s|^[[:space:]]*${key}=.*|${key}=${val}|" "$file" >"$tmp"
+  else
+    cat "$file" >"$tmp"
+    printf '%s=%s\n' "$key" "$val" >>"$tmp"
+  fi
+  mv "$tmp" "$file"
+}
+
+read_http_enabled_host() {
+  local yml="${DNS_DIR}/config/panel/ui.yml" line
+  if [ -f "$yml" ]; then
+    line=$(grep -E '^[[:space:]]*httpEnabled:' "$yml" | head -1 || true)
+    case "$line" in
+      *false*|*False*|*no*|*No*|*0*) echo "0"; return ;;
+    esac
+  fi
+  echo "1"
+}
+
+write_http_conf_host() {
+  local enabled="$1" https_port="$2"
+  local conf="${DNS_DIR}/nginx/generated/http.conf"
+  mkdir -p "$(dirname "$conf")"
+  if [ "$enabled" = "1" ]; then
+    cat >"$conf" <<'EOF'
+server {
+    listen 80;
+    server_name _;
+    include /etc/nginx/panel_locations.conf;
+}
+EOF
+  else
+    cat >"$conf" <<EOF
+server {
+    listen 80;
+    server_name _;
+    return 301 https://\$host:${https_port}\$request_uri;
+}
+EOF
+  fi
+}
+
+write_ui_listen_host() {
+  local https_port="$1" py_bool="$2" en_flag yml="${DNS_DIR}/config/panel/ui.yml"
+  if [ "$py_bool" = "True" ]; then en_flag=1; else en_flag=0; fi
+  mkdir -p "$(dirname "$yml")"
+  if docker exec dns-panel python -c "from app.panel_tls import write_listen_settings; write_listen_settings(${https_port}, ${py_bool})" 2>/dev/null; then
+    return 0
+  fi
+  if [ -f "$yml" ] && grep -qE '^[[:space:]]*httpsPort:' "$yml"; then
+    sed -i -E "s|^[[:space:]]*httpsPort:.*|httpsPort: ${https_port}|" "$yml"
+  elif [ -f "$yml" ]; then
+    printf 'httpsPort: %s\n' "$https_port" >>"$yml"
+  else
+    printf 'httpsPort: %s\nhttpEnabled: %s\n' "$https_port" \
+      "$([ "$en_flag" = "1" ] && echo true || echo false)" >"$yml"
+  fi
+  if [ -f "$yml" ] && grep -qE '^[[:space:]]*httpEnabled:' "$yml"; then
+    sed -i -E "s|^[[:space:]]*httpEnabled:.*|httpEnabled: $([ "$en_flag" = "1" ] && echo true || echo false)|" "$yml"
+  elif [ -f "$yml" ]; then
+    printf 'httpEnabled: %s\n' "$([ "$en_flag" = "1" ] && echo true || echo false)" >>"$yml"
+  fi
+  write_http_conf_host "$en_flag" "$https_port"
+}
+
+firewall_swap_tcp() {
+  local old="$1" new="$2"
+  [ "$old" = "$new" ] && return 0
+  if ! command -v firewall-cmd >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! systemctl is-active --quiet firewalld 2>/dev/null; then
+    return 0
+  fi
+  firewall-cmd --permanent --add-port="${new}/tcp" 2>/dev/null || true
+  case "$old" in
+    80|443|53|853|8000|1812|1813) ;;
+    *) firewall-cmd --permanent --remove-port="${old}/tcp" 2>/dev/null || true ;;
+  esac
+  firewall-cmd --reload 2>/dev/null || true
+}
+
+valid_port() {
+  local p="$1"
+  case "$p" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  [ "$p" -ge 1 ] && [ "$p" -le 65535 ]
+}
+
+port_reserved() {
+  case "$1" in
+    53|80|443|8000|1812|1813|5380|853) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+cmd_set_ports() {
+  local old_http old_https old_en new_http new_https new_en reply en_py
+  load_install_meta
+  old_http="$UI_PORT"
+  old_https="$TLS_PORT"
+  old_en="$(read_http_enabled_host)"
+
+  new_http=""
+  new_https=""
+  new_en=""
+  if [ -n "${1:-}" ]; then new_http="$1"; fi
+  if [ -n "${2:-}" ]; then new_https="$2"; fi
+  if [ -n "${3:-}" ]; then
+    case "$3" in
+      on|ON|1|yes|true|TRUE) new_en=1 ;;
+      off|OFF|0|no|false|FALSE) new_en=0 ;;
+      *) echo -e "${red}ERROR:${plain} http enable must be on|off"; return 1 ;;
+    esac
+  fi
+
+  echo "=== Panel listen ports ==="
+  echo " Current HTTP:  :${old_http} ($([ "$old_en" = "1" ] && echo enabled || echo redirect→HTTPS))"
+  echo " Current HTTPS: :${old_https}"
+  echo ""
+
+  if [ -z "$new_http" ] || [ -z "$new_https" ] || [ -z "$new_en" ]; then
+    if [ ! -t 0 ]; then
+      echo -e "${red}ERROR:${plain} non-interactive: dns ports <http> <https> <on|off>"
+      return 1
+    fi
+    [ -z "$new_http" ] && {
+      read -r -p "HTTP port [${old_http}]: " reply
+      new_http="${reply:-$old_http}"
+    }
+    [ -z "$new_https" ] && {
+      read -r -p "HTTPS port [${old_https}]: " reply
+      new_https="${reply:-$old_https}"
+    }
+    if [ -z "$new_en" ]; then
+      if [ "$old_en" = "1" ]; then
+        read -r -p "Enable HTTP cleartext UI? [Y/n]: " reply
+        case "${reply:-Y}" in n|N|no|NO) new_en=0 ;; *) new_en=1 ;; esac
+      else
+        read -r -p "Enable HTTP cleartext UI? [y/N]: " reply
+        case "${reply:-N}" in y|Y|yes|YES) new_en=1 ;; *) new_en=0 ;; esac
+      fi
+    fi
+  fi
+
+  if ! valid_port "$new_http"; then
+    echo -e "${red}ERROR:${plain} bad HTTP port: ${new_http}"; return 1
+  fi
+  if ! valid_port "$new_https"; then
+    echo -e "${red}ERROR:${plain} bad HTTPS port: ${new_https}"; return 1
+  fi
+  if [ "$new_http" = "$new_https" ]; then
+    echo -e "${red}ERROR:${plain} HTTP and HTTPS ports must differ"; return 1
+  fi
+  if port_reserved "$new_http"; then
+    echo -e "${red}ERROR:${plain} HTTP port ${new_http} reserved"; return 1
+  fi
+  if port_reserved "$new_https"; then
+    echo -e "${red}ERROR:${plain} HTTPS port ${new_https} reserved"; return 1
+  fi
+
+  if [ "$new_http" = "$old_http" ] && [ "$new_https" = "$old_https" ] && [ "$new_en" = "$old_en" ]; then
+    echo "No change."
+    return 0
+  fi
+
+  echo " Will set: HTTP :${new_http} ($([ "$new_en" = "1" ] && echo enabled || echo redirect)) · HTTPS :${new_https}"
+  if ! confirm "Apply and recreate dns-nginx (+ panel)?"; then
+    echo "Cancelled."
+    return 0
+  fi
+
+  set_env_kv "${DNS_DIR}/.env" DNS_UI_PORT "$new_http"
+  set_env_kv "${DNS_DIR}/.env" DNS_UI_TLS_PORT "$new_https"
+  mkdir -p /etc/dns
+  set_env_kv "$INSTALL_META" DNS_UI_PORT "$new_http"
+  set_env_kv "$INSTALL_META" DNS_UI_TLS_PORT "$new_https"
+  if ! grep -q '^DNS_DOT_PORT=' "$INSTALL_META" 2>/dev/null; then
+    set_env_kv "$INSTALL_META" DNS_DOT_PORT "$DOT_PORT"
+  fi
+  chmod 600 "$INSTALL_META" 2>/dev/null || true
+
+  if [ "$new_en" = "1" ]; then en_py=True; else en_py=False; fi
+  write_ui_listen_host "$new_https" "$en_py"
+  write_http_conf_host "$new_en" "$new_https"
+
+  firewall_swap_tcp "$old_http" "$new_http"
+  firewall_swap_tcp "$old_https" "$new_https"
+
+  echo "Recreating nginx + panel…"
+  compose up -d --no-deps --force-recreate nginx panel
+  sleep 2
+  docker restart dns-nginx 2>/dev/null || true
+
+  UI_PORT="$new_http"
+  TLS_PORT="$new_https"
+  echo -e "${green}OK:${plain} ports applied"
+  cmd_url
+}
+
 show_usage() {
   echo "DNS Panel management CLI"
   echo ""
   echo "  dns                 Interactive menu"
   echo "  dns status          Compose / ports status"
   echo "  dns url             Panel / DoH / DoT URLs"
+  echo "  dns ports           Set panel HTTP/HTTPS ports (+ HTTP on/off)"
+  echo "  dns ports <http> <https> <on|off>"
   echo "  dns update          Update from GitHub (keep data)"
   echo "  dns update-wipe     Update + wipe Technitium data"
   echo "  dns uninstall       Remove stack"
@@ -311,6 +521,7 @@ show_menu() {
   echo -e " ${green}8.${plain} Backup"
   echo -e " ${green}9.${plain} Show panel URL"
   echo -e " ${green}10.${plain} Fix Blocky forwarder IP"
+  echo -e " ${green}11.${plain} Set panel ports (HTTP/HTTPS)"
   echo -e " ${green}0.${plain} Exit"
   echo " ------------------------------------------"
 }
@@ -319,7 +530,7 @@ run_menu() {
   export DNS_MENU=1
   while true; do
     show_menu
-    read -r -p "Select [0-10]: " choice
+    read -r -p "Select [0-11]: " choice
     case "$choice" in
       1) cmd_update_keep; press_enter ;;
       2) cmd_update_wipe; press_enter ;;
@@ -331,6 +542,7 @@ run_menu() {
       8) cmd_backup; press_enter ;;
       9) cmd_url; press_enter ;;
       10) cmd_fix_forwarder; press_enter ;;
+      11) cmd_set_ports; press_enter ;;
       0|q|Q) exit 0 ;;
       *) echo "Invalid option" ;;
     esac
@@ -346,6 +558,7 @@ case "${1:-}" in
   help|-h|--help) show_usage ;;
   status) cmd_status ;;
   url) cmd_url ;;
+  ports|set-ports|listen) shift; cmd_set_ports "$@" ;;
   update) cmd_update_keep ;;
   update-wipe|update-drop) cmd_update_wipe ;;
   uninstall) cmd_uninstall ;;

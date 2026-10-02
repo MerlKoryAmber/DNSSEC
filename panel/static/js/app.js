@@ -1861,7 +1861,7 @@
                 <div class="proto-main">
                   <label>Status</label>
                   <div class="cert-status ${st.present ? "is-set" : ""}">Certificate: ${escapeHtml(statusLine)}</div>
-                  <div class="hint">HTTPS for panel UI (nginx), not DoT/DoH. HTTP :${httpPort}${httpOn ? "" : " (redirect→HTTPS)"} · HTTPS :${httpsPort}.</div>
+                  <div class="hint">HTTPS for panel UI (nginx), not DoT/DoH. Listen ports: HTTP :${httpPort}${httpOn ? "" : " (redirect→HTTPS)"} · HTTPS :${httpsPort} — change via <code>sudo dns ports</code>.</div>
                 </div>
               </div>
               <div class="proto-row">
@@ -1896,31 +1896,6 @@
                 </div>
               </div>
             </div>
-          </div>
-
-          <div class="form-card" style="margin-top:var(--space-md)">
-            <p class="section-title">Listen</p>
-            <div class="proto-list">
-              <div class="proto-row">
-                <div class="proto-main">
-                  <label class="inline"><input type="checkbox" id="panelHttpEnable" ${httpOn ? "checked" : ""} /> Enable HTTP (:${httpPort})</label>
-                  <div class="hint">Off = :${httpPort} redirects to HTTPS :${httpsPort}. On = cleartext UI.</div>
-                </div>
-              </div>
-              <div class="proto-row">
-                <div class="proto-main">
-                  <div class="field field-flush">
-                    <label for="panelHttpsPort">Host port for panel HTTPS</label>
-                    <input type="number" id="panelHttpsPort" min="1" max="65535" value="${httpsPort}" />
-                    <div class="hint">Maps host :port → nginx :443. Avoid ${httpPort} / 53 / other used ports. Save recreates dns-nginx.</div>
-                  </div>
-                </div>
-                <div class="proto-port">
-                  <label>&nbsp;</label>
-                  <button type="button" class="btn" id="btnSaveHttpsPort">Save</button>
-                </div>
-              </div>
-            </div>
           </div>`;
         const keyInput = document.getElementById("panelKeyFile");
         const certInput = document.getElementById("panelCertFile");
@@ -1945,22 +1920,6 @@
             const r = await DnsApi.uploadPanelTls(k, c);
             const reloadOk = r.reload && r.reload.reloaded;
             toast(reloadOk ? "Panel TLS uploaded · nginx reloaded" : `Panel TLS uploaded · ${r.reload?.reason || "reload pending"}`);
-            await viewSettings("panel-tls");
-          } catch (ex) {
-            toast(ex.message, "error");
-            btn.disabled = false;
-          }
-        });
-        document.getElementById("btnSaveHttpsPort").addEventListener("click", async () => {
-          const port = Number(document.getElementById("panelHttpsPort").value);
-          const httpEnabled = document.getElementById("panelHttpEnable").checked;
-          const btn = document.getElementById("btnSaveHttpsPort");
-          btn.disabled = true;
-          try {
-            const r = await DnsApi.savePanelHttpsPort(port, httpEnabled);
-            const ok = r.apply && r.apply.applied;
-            const httpMsg = r.httpEnabled ? "HTTP on" : "HTTP→HTTPS redirect";
-            toast(ok ? `Listen saved · HTTPS :${r.httpsPort} · ${httpMsg}` : `Saved · ${r.apply?.reason || "apply pending"}`, ok ? "ok" : "error");
             await viewSettings("panel-tls");
           } catch (ex) {
             toast(ex.message, "error");

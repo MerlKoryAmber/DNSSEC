@@ -129,7 +129,7 @@
 | `blocklist_presets.py` | curated blocklist URLs (seed выключенными) |
 | `query_logs.py` | ensure Query Logs (Sqlite) + resolve logger |
 | `host_stats.py` | CPU/RAM (/proc) + probes Technitium/Blocky/Nginx |
-| `panel_tls.py` | Panel UI TLS (nginx PEM) + Listen; reload через signals (не docker.sock) |
+| `panel_tls.py` | Panel UI TLS (nginx PEM); listen ports пишет CLI `dns ports` |
 | `ui_prefs.py` | UI prefs in `ui.yml` (timezone display, default Europe/Moscow) |
 | `tls_store.py` | .pfx write + PEM key/chain → PKCS#12 |
 
@@ -171,7 +171,7 @@
 - Settings (Technitium, **не** список Forwarders UI): `GET/PUT /settings`,
   `POST /settings/dns-tls-cert` (.pfx), `POST /settings/dns-tls-pem` (key+chain → pfx)
   `GET/POST /settings/panel-tls` (PEM key+cert → nginx HTTPS, HUP)
-  `PUT /settings/panel-tls/https-port` `{port,httpEnabled}` → `.env` + `nginx/generated/http.conf` + recreate nginx
+  Listen ports — **только CLI** `sudo dns ports` (не API)
 
 - Forwarders (Blocky): `GET/PUT /forwarders`, `POST /forwarders/test`
 - Blocking (Technitium): `GET/PUT /blocking`, force-update / temporary-disable,
@@ -219,7 +219,8 @@
   внутри контейнера). nginx `/dns-query` → `https://technitium:443` (`proxy_ssl_verify off`).
   HTTP `:8053` / `enableDnsOverHttp` → 403 «supported only on HTTPS».
 - **Panel TLS:** PEM `config/nginx/ssl/panel.{crt,key}`; HTTPS `:9443` (порт из UI).
-  HTTP on/off — `nginx/generated/http.conf` (serve vs 301→HTTPS). Save Listen → HUP + recreate nginx.
+  HTTP on/off — `nginx/generated/http.conf` (serve vs 301→HTTPS).
+  Смена портов / HTTP enable — **`sudo dns ports`**, не веб-UI.
 - **Upstream DoT (исходящий :853):** с lab `192.168.0.178` TCP/853 наружу =
   Connection refused (сеть/провайдер). Forwarders kind=DoT в Test/Save будут
   падать; DoH/Classic с lab работают. Не путать с client DoT на входящем 853.

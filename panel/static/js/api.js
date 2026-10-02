@@ -70,10 +70,6 @@ window.DnsApi = {
     fd.append("cert", certFile);
     return api("/api/settings/panel-tls", { method: "POST", body: fd });
   },
-  savePanelHttpsPort: (port, httpEnabled = true) => api("/api/settings/panel-tls/https-port", {
-    method: "PUT",
-    body: { port: Number(port), httpEnabled: !!httpEnabled },
-  }),
   uiPrefs: () => api("/api/settings/ui"),
   saveUiPrefs: (body) => api("/api/settings/ui", { method: "PUT", body }),
   blocking: () => api("/api/blocking"),

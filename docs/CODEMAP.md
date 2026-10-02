@@ -27,7 +27,7 @@ Handoff: `docs/agent_reports/handoff/CURRENT.md`.
 | `/api/blocking*` | Technitium Blocking + Allowed/Blocked + **Log** (Query Logs) |
 | `/api/forwarders*` | Blocky YAML |
 | `/api/zones*`, `/api/settings*` | Technitium |
-| `/api/settings/panel-tls*` | nginx PEM + Listen (`port`, `httpEnabled`) |
+| `/api/settings/panel-tls` | nginx PEM upload/status (порты — CLI `dns ports`) |
 | `/api/settings/ui` | UI prefs: timezone, `logAllowedQueries`, `maxLogRecords`, `maxLogDays` |
 
 ## Ключевые файлы

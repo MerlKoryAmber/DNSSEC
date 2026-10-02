@@ -47,13 +47,17 @@
 8. Backup config + Technitium data
 9. Show panel URL
 10. Fix Blocky forwarder IP
+11. Set panel ports (HTTP/HTTPS)
 0. Exit
 ```
 
 Подкоманды: `update`, `update-wipe`, `uninstall`, `password`, `status`,
-`restart`, `restart-nginx`, `backup`, `url`, `fix-forwarder`, `help`.
+`restart`, `restart-nginx`, `backup`, `url`, `fix-forwarder`, `ports`, `help`.
 
-Мета: `/etc/dns/install.env` (`DNS_UI_PORT`, `DNS_UI_TLS_PORT`, `DNS_DOT_PORT`).
+`dns ports` — HTTP/HTTPS host ports + Enable HTTP (cleartext vs redirect).
+Пишет `.env` / `/etc/dns/install.env` / `config/panel/ui.yml` /
+`nginx/generated/http.conf`, firewalld, recreate `nginx`+`panel`.
+В веб-UI Listen **нет** (только read-only в Panel TLS).
 
 ---
 

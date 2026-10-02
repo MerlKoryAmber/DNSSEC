@@ -291,27 +291,6 @@ async def upload_panel_tls(
     return {"status": "ok", "reload": reload, **st}
 
 
-class PanelHttpsPortBody(BaseModel):
-    port: int = Field(ge=1, le=65535)
-    httpEnabled: bool = True
-
-
-@router.put("/settings/panel-tls/https-port")
-async def put_panel_https_port(
-    body: PanelHttpsPortBody,
-    _client: TechnitiumClient = Depends(get_client),
-):
-    """HTTPS host port + Enable HTTP (nginx :80 serve vs redirect to HTTPS)."""
-    from . import panel_tls
-
-    try:
-        result = await panel_tls.apply_https_port(body.port, http_enabled=body.httpEnabled)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    st = panel_tls.status()
-    return {"status": "ok", **st, "apply": result}
-
-
 class UiPrefsBody(BaseModel):
     timezone: str | None = Field(default=None, min_length=1, max_length=64)
     logAllowedQueries: bool | None = None

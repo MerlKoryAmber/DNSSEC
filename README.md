@@ -54,6 +54,7 @@ bash /opt/dns/install.sh
 sudo dns              # интерактивное меню
 sudo dns status
 sudo dns url
+sudo dns ports        # HTTP/HTTPS + HTTP on/off
 sudo dns update       # с GitHub, сохранить данные
 sudo dns update-wipe  # update + wipe Technitium data (2× confirm)
 sudo dns backup
@@ -76,7 +77,8 @@ sudo dns help
 ## Разделы UI
 
 Dashboard · Zones · Forwarders · Client protocol · Blocking · Query log · Settings  
-(General: timezone + query log storage; Panel TLS / Listen; Blocking)
+(General: timezone + query log storage; Panel TLS cert; Blocking).  
+Порты панели — `sudo dns ports`, не UI.
 
 ## Документация
 

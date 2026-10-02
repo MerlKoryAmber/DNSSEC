@@ -1,12 +1,11 @@
-# Handoff CURRENT — 2026-10-02 ~16:55 МСК
+# Handoff CURRENT — 2026-10-02 ~17:00 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**В РАБОТЕ:** Panel TLS — Upload PEM рядом с Choose key/cert (как Client
-protocol), не в toolbar. Локально, не в main.
-Ранее в main: `e990d5d` build-proxy pip/apk.
+**В РАБОТЕ:** Listen/порты панели убраны из UI; CLI `dns ports` (меню п.11).
+API `PUT /settings/panel-tls/https-port` удалён. Локально, не в main.
 
 ## Lab
 
@@ -14,4 +13,4 @@ protocol), не в toolbar. Локально, не в main.
 
 ## Git
 
-https://github.com/MerlKoryAmber/DNSSEC · local поверх `e990d5d`
+https://github.com/MerlKoryAmber/DNSSEC · local поверх `c5d401a`
