@@ -1,17 +1,18 @@
-# Handoff CURRENT — 2026-10-02 ~00:30 МСК
+# Handoff CURRENT — 2026-10-02 ~16:40 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО:** CLI + update/uninstall на GitHub `main`
-(`821e208`). Lab: `dns update --keep-data` с GitHub + smoke PASS
-(UI/HTTPS/DNS/DoH/backup/pattern).
+**В РАБОТЕ:** dockerd pull через host HTTP(S)_PROXY (`docker-host-proxy.sh`);
+compose `x-proxy-guard` для контейнеров без изменений. sh → git `100755`.
+Лабы нет — только код, без выкладки.
 
 ## Lab
 
-`192.168.0.178` `/opt/dns` · `sudo dns`
+нет (ранее `192.168.0.178` `/opt/dns`)
 
 ## Git
 
-https://github.com/MerlKoryAmber/DNSSEC · `main` @ `821e208`
+https://github.com/MerlKoryAmber/DNSSEC · локально поверх `main` @ `1237df0`
+(не закоммичено)

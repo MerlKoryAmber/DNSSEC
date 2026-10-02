@@ -53,15 +53,28 @@ check_ports() {
   done
 }
 
+ensure_scripts_exec() {
+  local dir="$1"
+  chmod 755 \
+    "$dir/install.sh" "$dir/update.sh" "$dir/uninstall.sh" \
+    "$dir/dns.sh" "$dir/docker-host-proxy.sh" 2>/dev/null || true
+}
+
 install_docker() {
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "$0")" && pwd)/docker-host-proxy.sh"
+
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     log "Docker + compose уже есть"
+    dns_configure_docker_host_proxy
     return
   fi
   log "ставим Docker CE (не трогая существующие контейнеры)"
   dnf -y install dnf-plugins-core
   dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo || true
   dnf -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  # drop-in до первого start — pull сразу через host proxy
+  dns_configure_docker_host_proxy
   systemctl enable --now docker
 }
 
@@ -156,8 +169,8 @@ sync_files() {
 }
 
 install_cli() {
+  ensure_scripts_exec "$TARGET_DIR"
   if [[ -f "$TARGET_DIR/dns.sh" ]]; then
-    chmod 755 "$TARGET_DIR/dns.sh" "$TARGET_DIR/update.sh" "$TARGET_DIR/uninstall.sh" 2>/dev/null || true
     install -m 755 "$TARGET_DIR/dns.sh" /usr/bin/dns
     install -m 755 "$TARGET_DIR/dns.sh" /usr/local/bin/dns 2>/dev/null || true
     log "CLI menu installed: /usr/bin/dns"
@@ -252,6 +265,7 @@ main() {
   fi
   check_other_stacks
   check_ports
+  ensure_scripts_exec "$(cd "$(dirname "$0")" && pwd)"
   install_docker
   prepare_resolved
   firewall_ports

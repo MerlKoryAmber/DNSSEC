@@ -71,7 +71,9 @@ ask_wipe() {
 
 install_cli() {
   if [ -f "${DNS_DIR}/dns.sh" ]; then
-    chmod 755 "${DNS_DIR}/dns.sh" "${DNS_DIR}/update.sh" "${DNS_DIR}/uninstall.sh" 2>/dev/null || true
+    chmod 755 \
+      "${DNS_DIR}/dns.sh" "${DNS_DIR}/update.sh" "${DNS_DIR}/uninstall.sh" \
+      "${DNS_DIR}/install.sh" "${DNS_DIR}/docker-host-proxy.sh" 2>/dev/null || true
     install -m 755 "${DNS_DIR}/dns.sh" /usr/bin/dns
     install -m 755 "${DNS_DIR}/dns.sh" /usr/local/bin/dns 2>/dev/null || true
     echo "CLI: /usr/bin/dns"
@@ -148,7 +150,8 @@ if [ "${1:-}" != "--continue" ]; then
   GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$CLONE_NEW"
   echo "Cloned:"
   git -C "$CLONE_NEW" log -1 --oneline
-  chmod 755 "$CLONE_NEW/update.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/install.sh" "$CLONE_NEW/dns.sh" 2>/dev/null || true
+  chmod 755 "$CLONE_NEW/update.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/install.sh" \
+    "$CLONE_NEW/dns.sh" "$CLONE_NEW/docker-host-proxy.sh" 2>/dev/null || true
   exec /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
 fi
 
@@ -171,7 +174,9 @@ rsync -a \
   "$CLONE_NEW"/ "$DNS_DIR"/
 
 # Ensure scripts executable
-chmod 755 "${DNS_DIR}/dns.sh" "${DNS_DIR}/update.sh" "${DNS_DIR}/uninstall.sh" "${DNS_DIR}/install.sh" 2>/dev/null || true
+chmod 755 \
+  "${DNS_DIR}/dns.sh" "${DNS_DIR}/update.sh" "${DNS_DIR}/uninstall.sh" \
+  "${DNS_DIR}/install.sh" "${DNS_DIR}/docker-host-proxy.sh" 2>/dev/null || true
 
 if [ "$wipe_data" = "1" ]; then
   echo "[3/4] Wiping Technitium data…"
@@ -185,6 +190,11 @@ fi
 
 install_cli
 sync_install_env
+
+# dockerd pull via host proxy (containers still cleared by compose x-proxy-guard)
+# shellcheck disable=SC1091
+. "${DNS_DIR}/docker-host-proxy.sh"
+dns_configure_docker_host_proxy
 
 echo "[4/4] docker compose up --build…"
 cd "$DNS_DIR"

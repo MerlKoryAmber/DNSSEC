@@ -67,9 +67,12 @@
 
 Сеть: `dns_net`. Blocky **не** публиковать на host :53.
 
-**Прокси:** в compose у всех сервисов сброс `HTTP(S)_PROXY` + `NO_PROXY`
-(localhost, имена сервисов, RFC1918). Иначе системный прокси хоста
-утекает в контейнеры и ломает panel↔technitium / nginx↔panel.
+**Прокси:**
+- **dockerd (pull/build):** `docker-host-proxy.sh` → systemd drop-in
+  `/etc/systemd/system/docker.service.d/http-proxy.conf` из host
+  `HTTP(S)_PROXY` (env или `/etc/environment`). Install/update вызывают до compose pull.
+- **контейнеры dns-*:** compose `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY`
+  (localhost, имена сервисов, RFC1918). Host-прокси внутрь не пускать.
 
 **Лимиты логов (диск):**
 | Источник | Лимит |
@@ -202,6 +205,9 @@
 - **Host HTTP_PROXY в контейнерах** → service mesh ломается. Compose
   держит пустые `*_PROXY` + `NO_PROXY` (см. `x-proxy-guard`). Не прокидывать
   proxy из systemd/docker daemon в dns-* без NO_PROXY на `dns_net`.
+- **dockerd без proxy drop-in** → `docker pull` мимо корпоративного прокси.
+  Чинится `docker-host-proxy.sh` (install/update). Контейнеры при этом
+  остаются без proxy.
 - `dnssecValidation` must be off при forward через Blocky.
 - **Client DoT/DoH:** нужен `.pfx` в `config/technitium/ssl/dns-tls.pfx`. Без
   сертификата DoT на :853 отвечает без peer cert / handshake fail. После
