@@ -42,16 +42,16 @@
 
 | | |
 |--|--|
-| Хост | `192.168.0.178` CentOS Stream 9 |
+| Хост (истор.) | `192.168.0.178` CentOS Stream 9 — **сейчас лабы нет** |
 | Каталог | `/opt/dns` |
-| UI | `http://192.168.0.178:9080/` |
-| Логин lab | Technitium `admin` / `admin` (не в git-секреты) |
+| UI | `http://HOST:9080/` · `https://HOST:9443/` (порты → `dns ports`) |
+| Логин | Technitium (не коммитить пароли) |
 
-**Публичные порты стека:** `53/tcp+udp`, `853/tcp` (DoT), `9080/tcp` (UI HTTP), `9443/tcp` (UI HTTPS).
+**Публичные порты стека (default):** `53/tcp+udp`, `853/tcp` (DoT), `9080/tcp` (UI HTTP), `9443/tcp` (UI HTTPS).
 
 **Не трогать:** `/opt/radiusproxy`, `/opt/spm`, контейнеры чужие, порты `80/443/8000/1812/1813`, `systemctl` чужого, `git push` / `git add .` без команды.
 
-**Деплой:** scp точечно в `/opt/dns` → `docker compose -p dns up -d --build …` → человек смотрит → **потом** предложить commit → отдельным шагом push. После recreate `panel` — часто нужен `docker restart dns-nginx` (stale upstream → 502).
+**Деплой:** при наличии lab — scp точечно в `/opt/dns` → `docker compose -p dns up -d --build …` → человек смотрит → **потом** предложить commit → отдельным шагом push. После recreate `panel` — часто нужен `docker restart dns-nginx` (stale upstream → 502). Без lab — только код/docs, commit/push по команде.
 
 ---
 
@@ -104,15 +104,17 @@
 | Путь | Зачем |
 |------|--------|
 | `docker-compose.yml` | сервисы, env, volumes |
-| `install.sh` | первичная установка + CLI `/usr/bin/dns` |
-| `update.sh` | update с GitHub (keep / wipe Technitium data) |
+| `install.sh` | первичная установка + CLI `/usr/bin/dns` + docker proxy |
+| `update.sh` | update с GitHub (keep / wipe Technitium data) + docker proxy |
 | `uninstall.sh` | compose down + remove CLI (+ optional wipe `/opt/dns`) |
-| `dns.sh` | interactive CLI menu → `/usr/bin/dns` |
+| `dns.sh` | interactive CLI menu → `/usr/bin/dns` (в т.ч. `ports`) |
+| `docker-host-proxy.sh` | systemd drop-in HTTP(S)_PROXY для dockerd pull |
+| `blocky-watch/Dockerfile` | docker:cli + inotify (без runtime `apk`) |
 | `docs/patterns/cli-menu-linux.md` | паттерн меню (из squid-panel) |
 | `config/blocky/config.yml` | upstreams Blocky (пишет panel) |
 | `config/technitium/` | данные Technitium (volume) |
 | `nginx/nginx.conf` | proxy UI/API/DoH + include generated HTTP |
-| `nginx/generated/http.conf` | HTTP :80 serve vs 301→HTTPS (пишет panel) |
+| `nginx/generated/http.conf` | HTTP :80 serve vs 301→HTTPS (`dns ports` / panel_tls) |
 | `config/nginx/ssl/` | Panel TLS PEM `panel.{crt,key}` |
 
 ### Panel backend (`panel/app/`)
@@ -152,7 +154,8 @@
 | Client protocol | `routes.py` settings | `app.js` `#/client-protocol` | Technitium |
 | Blocking | `routes.py` `/api/blocking*` + `blocklist_store.py` | `app.js` `#/blocking` | Lists / Allowed / Blocked |
 | Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` | `app.js` `#/query-log` | Technitium Query Logs Sqlite |
-| Settings | `routes.py` + `panel_tls.py` | `app.js` `#/settings` | Blocking · **Panel TLS** |
+| Settings | `routes.py` + `panel_tls.py` | `#/settings` Panel TLS PEM; порты — CLI | Blocking · Panel TLS |
+| Panel listen ports | `dns.sh` `ports` (+ `panel_tls.write_listen_settings`) | — | `.env` / `ui.yml` / `http.conf` |
 | Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` | `app.js` `#/dashboard` | Technitium stats + CPU/RAM + services |
 
 ---
@@ -218,7 +221,7 @@
   **DoH wire:** Technitium ≥15 — только HTTPS (`enableDnsOverHttps`, порт 443
   внутри контейнера). nginx `/dns-query` → `https://technitium:443` (`proxy_ssl_verify off`).
   HTTP `:8053` / `enableDnsOverHttp` → 403 «supported only on HTTPS».
-- **Panel TLS:** PEM `config/nginx/ssl/panel.{crt,key}`; HTTPS `:9443` (порт из UI).
+- **Panel TLS:** PEM `config/nginx/ssl/panel.{crt,key}`; HTTPS default `:9443`.
   HTTP on/off — `nginx/generated/http.conf` (serve vs 301→HTTPS).
   Смена портов / HTTP enable — **`sudo dns ports`**, не веб-UI.
 - **Upstream DoT (исходящий :853):** с lab `192.168.0.178` TCP/853 наружу =

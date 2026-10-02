@@ -375,11 +375,33 @@ valid_port() {
   [ "$p" -ge 1 ] && [ "$p" -le 65535 ]
 }
 
+port_in_use() {
+  local port="$1"
+  ss -lntu 2>/dev/null | awk '{print $5}' | grep -E "[:.]${port}$" >/dev/null 2>&1
+}
+
+# Only ports this stack must keep (or Technitium local API). 80/443 NOT banned —
+# reserved only if already listening (e.g. radiusproxy).
 port_reserved() {
-  case "$1" in
-    53|80|443|8000|1812|1813|5380|853) return 0 ;;
-    *) return 1 ;;
+  local p="$1"
+  case "$p" in
+    53|5380) return 0 ;;
   esac
+  [ "$p" = "$DOT_PORT" ] && return 0
+  return 1
+}
+
+port_conflict_msg() {
+  local p="$1" role="$2"
+  if port_reserved "$p"; then
+    echo "ERROR: ${role} port ${p} reserved for DNS stack (53 / DoT ${DOT_PORT} / Technitium 5380)"
+    return 0
+  fi
+  if port_in_use "$p"; then
+    echo "ERROR: ${role} port ${p} already in use on host (ss)"
+    return 0
+  fi
+  return 1
 }
 
 cmd_set_ports() {
@@ -440,11 +462,12 @@ cmd_set_ports() {
   if [ "$new_http" = "$new_https" ]; then
     echo -e "${red}ERROR:${plain} HTTP and HTTPS ports must differ"; return 1
   fi
-  if port_reserved "$new_http"; then
-    echo -e "${red}ERROR:${plain} HTTP port ${new_http} reserved"; return 1
+  # skip "in use" for ports we already own (no-op / swap)
+  if [ "$new_http" != "$old_http" ]; then
+    msg=$(port_conflict_msg "$new_http" "HTTP") && { echo -e "${red}${msg}${plain}"; return 1; }
   fi
-  if port_reserved "$new_https"; then
-    echo -e "${red}ERROR:${plain} HTTPS port ${new_https} reserved"; return 1
+  if [ "$new_https" != "$old_https" ]; then
+    msg=$(port_conflict_msg "$new_https" "HTTPS") && { echo -e "${red}${msg}${plain}"; return 1; }
   fi
 
   if [ "$new_http" = "$old_http" ] && [ "$new_https" = "$old_https" ] && [ "$new_en" = "$old_en" ]; then

@@ -1,11 +1,11 @@
-# Handoff CURRENT — 2026-10-02 ~17:00 МСК
+# Handoff CURRENT — 2026-10-02 ~17:45 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**В РАБОТЕ:** Listen/порты панели убраны из UI; CLI `dns ports` (меню п.11).
-API `PUT /settings/panel-tls/https-port` удалён. Локально, не в main.
+**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО** на GitHub `main` @ `eb1964a` + локально:
+`dns ports` больше не банит 80/443 заранее — только 53/DoT/5380 и реально занятые (`ss`).
 
 ## Lab
 
@@ -13,4 +13,4 @@ API `PUT /settings/panel-tls/https-port` удалён. Локально, не в
 
 ## Git
 
-https://github.com/MerlKoryAmber/DNSSEC · local поверх `c5d401a`
+https://github.com/MerlKoryAmber/DNSSEC · `main` @ `eb1964a` (локальный fix портов не запушен)

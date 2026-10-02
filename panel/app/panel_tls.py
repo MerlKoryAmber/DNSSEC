@@ -18,8 +18,8 @@ from cryptography.x509.oid import NameOID
 
 MAX_PEM = 256 * 1024
 DEFAULT_HTTPS_PORT = 9443
-# Reserved host ports (radiusproxy / DNS / lab) — HTTPS must not collide
-_BLOCKED_PORTS = {53, 80, 443, 8000, 1812, 1813, 5380}
+# Hard-block only ports this stack must not steal. 80/443 free if unused on host.
+_BLOCKED_PORTS = {53, 5380}
 
 
 def ssl_dir() -> Path:
@@ -101,7 +101,13 @@ def validate_https_port(port: int) -> int:
     if p < 1 or p > 65535:
         raise ValueError("Port must be 1…65535")
     if p in _BLOCKED_PORTS:
-        raise ValueError(f"Port {p} is reserved (HTTP UI / DNS / lab services)")
+        raise ValueError(f"Port {p} is reserved (DNS / Technitium API)")
+    try:
+        dot = int(os.environ.get("DNS_DOT_PORT") or os.environ.get("PANEL_DOT_PORT") or "853")
+    except ValueError:
+        dot = 853
+    if p == dot:
+        raise ValueError(f"Port {p} is reserved for DoT")
     return p
 
 
