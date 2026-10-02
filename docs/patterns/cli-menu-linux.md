@@ -30,7 +30,7 @@
 | С аргументом | Сразу действие; exit ≠ 0 при ошибке. |
 | Опасное | Confirm `[y/N]`; wipe данных — **два** confirm. |
 | Не трогать | `/opt/radiusproxy`, `/opt/spm`, чужие контейнеры. `80`/`443` — ок для панели, если свободны (`ss`). |
-| Update | `update.sh` — clone GitHub, rsync кода с сохранением data; cwd → `/tmp`. |
+| Update | `update.sh` — clone GitHub, rsync кода; keep: technitium, panel, **blocky**, nginx ssl/generated, `.env`. |
 | Язык меню | English labels (как UI). |
 
 ---

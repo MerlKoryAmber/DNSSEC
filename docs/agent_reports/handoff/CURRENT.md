@@ -1,11 +1,13 @@
-# Handoff CURRENT — 2026-10-02 ~17:45 МСК
+# Handoff CURRENT — 2026-10-02 ~17:50 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО** на GitHub `main` @ `eb1964a` + локально:
-`dns ports` больше не банит 80/443 заранее — только 53/DoT/5380 и реально занятые (`ss`).
+**В РАБОТЕ (локально):** `update.sh` keep-data больше не затирает
+`config/blocky/config.yml` (причина сброса Forwarders после update).
+
+В main до фикса: `8ccf078`.
 
 ## Lab
 
@@ -13,4 +15,4 @@
 
 ## Git
 
-https://github.com/MerlKoryAmber/DNSSEC · `main` @ `eb1964a` (локальный fix портов не запушен)
+https://github.com/MerlKoryAmber/DNSSEC · local поверх `8ccf078`

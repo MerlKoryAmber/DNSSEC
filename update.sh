@@ -135,7 +135,7 @@ if [ "${1:-}" != "--continue" ]; then
     echo -e "${yellow}Will WIPE Technitium data.${plain}"
     cont_flag="--wipe-data"
   else
-    echo "Will KEEP Technitium data / .env / TLS / panel prefs."
+    echo "Will KEEP Technitium data / .env / TLS / panel prefs / Blocky forwarders."
     cont_flag="--keep-data"
   fi
 
@@ -162,16 +162,27 @@ ask_wipe
 echo "[2/4] Syncing code into ${DNS_DIR} (preserving data)…"
 mkdir -p "$DNS_DIR"
 
-# Preserve live secrets/data while rsync replaces code
+# Preserve live secrets/data while rsync replaces code.
+# config/blocky = Forwarders UI (must NOT reset to repo defaults on keep-data).
 rsync -a \
   --exclude '.git/' \
   --exclude 'config/technitium/' \
   --exclude 'config/panel/' \
+  --exclude 'config/blocky/' \
   --exclude 'config/nginx/ssl/' \
   --exclude 'nginx/generated/' \
   --exclude '.env' \
   --exclude 'storage/' \
   "$CLONE_NEW"/ "$DNS_DIR"/
+
+# Seed Blocky YAML only if missing (first install / wiped by hand)
+if [ ! -f "${DNS_DIR}/config/blocky/config.yml" ]; then
+  mkdir -p "${DNS_DIR}/config/blocky"
+  if [ -f "${CLONE_NEW}/config/blocky/config.yml" ]; then
+    cp -a "${CLONE_NEW}/config/blocky/config.yml" "${DNS_DIR}/config/blocky/config.yml"
+    echo "Seeded config/blocky/config.yml from repo (was missing)"
+  fi
+fi
 
 # Ensure scripts executable
 chmod 755 \

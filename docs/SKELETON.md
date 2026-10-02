@@ -111,7 +111,7 @@
 | `docker-host-proxy.sh` | systemd drop-in HTTP(S)_PROXY для dockerd pull |
 | `blocky-watch/Dockerfile` | docker:cli + inotify (без runtime `apk`) |
 | `docs/patterns/cli-menu-linux.md` | паттерн меню (из squid-panel) |
-| `config/blocky/config.yml` | upstreams Blocky (пишет panel) |
+| `config/blocky/config.yml` | upstreams Blocky (пишет panel); **update keep исключает** — иначе сброс forwarders |
 | `config/technitium/` | данные Technitium (volume) |
 | `nginx/nginx.conf` | proxy UI/API/DoH + include generated HTTP |
 | `nginx/generated/http.conf` | HTTP :80 serve vs 301→HTTPS (`dns ports` / panel_tls) |
@@ -206,7 +206,8 @@
 
 ## 7. Грабли (лаборатория)
 
-- После recreate `panel` → 502 на `/api` → `docker restart dns-nginx`.
+- **update keep-data** раньше затирал `config/blocky/config.yml` дефолтом
+  из GitHub → сброс Forwarders. Exclude `config/blocky/` (+ seed если нет файла).
 - Technitium forwarder = **IP** Blocky, не имя сервиса.
 - **Host HTTP_PROXY в контейнерах** → service mesh ломается. Compose
   держит пустые `*_PROXY` + `NO_PROXY` (см. `x-proxy-guard`). Не прокидывать
