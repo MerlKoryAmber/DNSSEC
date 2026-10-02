@@ -1,18 +1,18 @@
-# Handoff CURRENT — 2026-10-02 ~16:40 МСК
+# Handoff CURRENT — 2026-10-02 ~16:45 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**В РАБОТЕ:** dockerd pull через host HTTP(S)_PROXY (`docker-host-proxy.sh`);
-compose `x-proxy-guard` для контейнеров без изменений. sh → git `100755`.
-Лабы нет — только код, без выкладки.
+**В РАБОТЕ:** build-time proxy для `pip`/`apk` (BuildKit ARG + compose
+`build.args`); `blocky-watch` собирается с inotify, без runtime apk.
+До этого в main: `5fb4172` dockerd host-proxy + sh +x.
+Лабы нет.
 
 ## Lab
 
-нет (ранее `192.168.0.178` `/opt/dns`)
+нет
 
 ## Git
 
-https://github.com/MerlKoryAmber/DNSSEC · локально поверх `main` @ `1237df0`
-(не закоммичено)
+https://github.com/MerlKoryAmber/DNSSEC · local поверх `5fb4172` (не закоммичено)

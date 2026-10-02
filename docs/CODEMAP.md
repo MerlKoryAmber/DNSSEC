@@ -35,4 +35,5 @@ Handoff: `docs/agent_reports/handoff/CURRENT.md`.
 `panel/app/routes.py`, `auth.py`, `session_secret.py`, `signals.py`, `technitium.py`, `blocky_config.py`, `tls_store.py`, `panel_tls.py`,  
 `nginx/generated/http.conf`, `panel/static/js/app.js`, `panel/static/css/app.css`,  
 `dns.sh`, `update.sh`, `uninstall.sh`, `install.sh`, `docker-host-proxy.sh`,
+`panel/Dockerfile`, `blocky-watch/Dockerfile`,
 `docs/adr/0002-hybrid-blocky.md`, `docs/patterns/cli-menu-linux.md`

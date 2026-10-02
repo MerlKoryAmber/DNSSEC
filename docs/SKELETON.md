@@ -68,10 +68,13 @@
 Сеть: `dns_net`. Blocky **не** публиковать на host :53.
 
 **Прокси:**
-- **dockerd (pull/build):** `docker-host-proxy.sh` → systemd drop-in
+- **dockerd (pull/build base images):** `docker-host-proxy.sh` → systemd drop-in
   `/etc/systemd/system/docker.service.d/http-proxy.conf` из host
   `HTTP(S)_PROXY` (env или `/etc/environment`). Install/update вызывают до compose pull.
-- **контейнеры dns-*:** compose `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY`
+- **docker build RUN (pip/apk):** BuildKit не берёт proxy демона. Compose
+  `build.args` + `ARG` в `panel/Dockerfile`, `blocky-watch/Dockerfile`;
+  install/update экспортируют proxy в shell перед `compose up --build`.
+- **контейнеры dns-* runtime:** compose `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY`
   (localhost, имена сервисов, RFC1918). Host-прокси внутрь не пускать.
 
 **Лимиты логов (диск):**

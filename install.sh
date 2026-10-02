@@ -194,6 +194,10 @@ compose_up() {
   if [[ -f "$TARGET_DIR/.env" ]]; then
     grep -q '^DNS_HOST_PROJECT=' "$TARGET_DIR/.env" || echo "DNS_HOST_PROJECT=${TARGET_DIR}" >>"$TARGET_DIR/.env"
   fi
+  # shellcheck disable=SC1091
+  . "$TARGET_DIR/docker-host-proxy.sh"
+  dns_load_host_proxy
+  export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
   log "docker compose up (project=${COMPOSE_PROJECT}) — только сервисы dns-*"
   docker compose -p "$COMPOSE_PROJECT" --project-directory "$TARGET_DIR" up -d --build
 }

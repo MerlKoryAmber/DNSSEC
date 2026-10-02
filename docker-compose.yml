@@ -57,7 +57,15 @@ services:
 
   # Watch: Blocky YAML + panel signals (nginx HUP / recreate). Sole docker.sock holder for panel ops.
   blocky-watch:
-    image: docker.io/library/docker:27-cli
+    build:
+      context: ./blocky-watch
+      args: &build-proxy-args
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+        http_proxy: ${HTTP_PROXY:-}
+        https_proxy: ${HTTPS_PROXY:-}
+        no_proxy: ${NO_PROXY:-}
     container_name: dns-blocky-watch
     restart: unless-stopped
     logging: *dns-logging
@@ -74,7 +82,6 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        apk add --no-cache inotify-tools >/dev/null
         mkdir -p /signals
         PROJECT="$${DNS_HOST_PROJECT:-/opt/dns}"
         echo "watching blocky config + panel signals (project=$$PROJECT)"
@@ -103,7 +110,9 @@ services:
       - dns_net
 
   panel:
-    build: ./panel
+    build:
+      context: ./panel
+      args: *build-proxy-args
     container_name: dns-panel
     restart: unless-stopped
     logging: *dns-logging

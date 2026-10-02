@@ -195,6 +195,8 @@ sync_install_env
 # shellcheck disable=SC1091
 . "${DNS_DIR}/docker-host-proxy.sh"
 dns_configure_docker_host_proxy
+dns_load_host_proxy
+export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
 
 echo "[4/4] docker compose up --build…"
 cd "$DNS_DIR"
