@@ -1844,7 +1844,7 @@
     }
 
     if (tab === "panel-tls") {
-      extra.innerHTML = `<button type="button" class="btn" id="btnUploadPanelTls">Upload cert</button>`;
+      extra.innerHTML = "";
       try {
         const st = await DnsApi.panelTls();
         const httpsPort = st.httpsPort || 9443;
@@ -1881,16 +1881,17 @@
                 </div>
                 <div class="cert-box">
                   <div class="cert-controls">
-                    <label class="btn btn-secondary btn-sm">
+                    <label class="file-btn btn btn-secondary btn-sm">
                       Choose key
-                      <input type="file" id="panelKeyFile" accept=".key,.pem,.txt" hidden />
+                      <input type="file" id="panelKeyFile" accept=".key,.pem,.txt,application/x-pem-file" hidden />
                     </label>
                     <span class="file-name" id="panelKeyName">no key</span>
-                    <label class="btn btn-secondary btn-sm">
+                    <label class="file-btn btn btn-secondary btn-sm">
                       Choose cert
                       <input type="file" id="panelCertFile" accept=".crt,.cer,.pem,.txt,application/x-pem-file,application/x-x509-ca-cert" hidden />
                     </label>
                     <span class="file-name" id="panelCertName">no cert</span>
+                    <button type="button" class="btn btn-sm" id="btnUploadPanelTls">Upload PEM</button>
                   </div>
                 </div>
               </div>
@@ -1924,22 +1925,31 @@
         const keyInput = document.getElementById("panelKeyFile");
         const certInput = document.getElementById("panelCertFile");
         keyInput.addEventListener("change", () => {
-          document.getElementById("panelKeyName").textContent = keyInput.files[0]?.name || "no key";
+          const f = keyInput.files && keyInput.files[0];
+          document.getElementById("panelKeyName").textContent = f ? f.name : "no key";
         });
         certInput.addEventListener("change", () => {
-          document.getElementById("panelCertName").textContent = certInput.files[0]?.name || "no cert";
+          const f = certInput.files && certInput.files[0];
+          document.getElementById("panelCertName").textContent = f ? f.name : "no cert";
         });
         document.getElementById("btnUploadPanelTls").addEventListener("click", async () => {
-          const k = keyInput.files[0];
-          const c = certInput.files[0];
+          const keyEl = document.getElementById("panelKeyFile");
+          const certEl = document.getElementById("panelCertFile");
+          const k = keyEl && keyEl.files && keyEl.files[0];
+          const c = certEl && certEl.files && certEl.files[0];
           if (!k) { toast("Choose private key (.pem / .key)", "error"); return; }
           if (!c) { toast("Choose certificate (.crt / .pem)", "error"); return; }
+          const btn = document.getElementById("btnUploadPanelTls");
+          btn.disabled = true;
           try {
             const r = await DnsApi.uploadPanelTls(k, c);
             const reloadOk = r.reload && r.reload.reloaded;
             toast(reloadOk ? "Panel TLS uploaded · nginx reloaded" : `Panel TLS uploaded · ${r.reload?.reason || "reload pending"}`);
             await viewSettings("panel-tls");
-          } catch (ex) { toast(ex.message, "error"); }
+          } catch (ex) {
+            toast(ex.message, "error");
+            btn.disabled = false;
+          }
         });
         document.getElementById("btnSaveHttpsPort").addEventListener("click", async () => {
           const port = Number(document.getElementById("panelHttpsPort").value);

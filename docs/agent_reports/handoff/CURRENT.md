@@ -1,13 +1,12 @@
-# Handoff CURRENT — 2026-10-02 ~16:45 МСК
+# Handoff CURRENT — 2026-10-02 ~16:55 МСК
 
 Читать после `docs/SKELETON.md`.
 
 ## Статус
 
-**В РАБОТЕ:** build-time proxy для `pip`/`apk` (BuildKit ARG + compose
-`build.args`); `blocky-watch` собирается с inotify, без runtime apk.
-До этого в main: `5fb4172` dockerd host-proxy + sh +x.
-Лабы нет.
+**В РАБОТЕ:** Panel TLS — Upload PEM рядом с Choose key/cert (как Client
+protocol), не в toolbar. Локально, не в main.
+Ранее в main: `e990d5d` build-proxy pip/apk.
 
 ## Lab
 
@@ -15,4 +14,4 @@
 
 ## Git
 
-https://github.com/MerlKoryAmber/DNSSEC · local поверх `5fb4172` (не закоммичено)
+https://github.com/MerlKoryAmber/DNSSEC · local поверх `e990d5d`
