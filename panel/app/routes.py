@@ -412,7 +412,6 @@ async def get_forwarders(_client: TechnitiumClient = Depends(get_client)):
 async def put_forwarders(body: ForwardersSaveBody, client: TechnitiumClient = Depends(get_client)):
     """Write Blocky upstreams (strict order) + point Technitium at Blocky."""
     from . import blocky_config
-    from .config import settings as app_settings
 
     cleaned: list[dict[str, str]] = []
     for item in body.items:
@@ -425,26 +424,12 @@ async def put_forwarders(body: ForwardersSaveBody, client: TechnitiumClient = De
         blocky_config.write_forwarders(cleaned)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Cannot write Blocky config: {exc}") from exc
-    # Technitium → Blocky (IP: hostname «blocky» sometimes даёт Resolver exception)
-    import socket
+    from . import blocky_glue
 
-    try:
-        blocky_target = socket.gethostbyname(app_settings.blocky_upstream)
-    except OSError:
-        blocky_target = app_settings.blocky_upstream
-    try:
-        await client.settings_set(
-            {
-                "forwarders": blocky_target,
-                "forwarderProtocol": "Udp",
-                "concurrentForwarding": "false",
-                # DNSSEC validation ломает ответы от forwarder-only цепочки (Blocky)
-                "dnssecValidation": "false",
-            }
-        )
-    except TechnitiumError as exc:
-        raise _map_error(exc) from exc
-    return {"ok": True, "items": blocky_config.read_forwarders()}
+    glue = await blocky_glue.ensure_technitium_points_at_blocky(client)
+    if not glue.get("ok"):
+        raise HTTPException(status_code=502, detail=glue.get("error") or "Cannot set Technitium→Blocky")
+    return {"ok": True, "items": blocky_config.read_forwarders(), "technitiumForwarder": glue.get("forwarders")}
 
 
 def _normalize_forwarder(addr: str, kind: str) -> tuple[str, str]:

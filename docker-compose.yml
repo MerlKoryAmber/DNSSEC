@@ -89,15 +89,13 @@ services:
       - |
         mkdir -p /signals
         PROJECT="$${DNS_HOST_PROJECT:-/opt/dns}"
-        sync_fwd() {
-          if [ -x "$$PROJECT/sync-blocky-forwarder.sh" ]; then
-            sh "$$PROJECT/sync-blocky-forwarder.sh" || true
-          fi
+        check_fwd() {
+          # пароль не нужен: Blocky на fixed IP; только лог если IP уехал
+          DNS_FWD_CHECK_ONLY=1 sh "$$PROJECT/sync-blocky-forwarder.sh" 2>/dev/null || true
         }
         echo "watching blocky config + panel signals (project=$$PROJECT)"
-        # стартовый sync (после recreate IP мог смениться до фикса ipv4_address)
         sleep 2
-        sync_fwd
+        check_fwd
         while true; do
           inotifywait -e modify,close_write,move,create,attrib \
             /config/config.yml /signals 2>/dev/null || sleep 2
@@ -115,7 +113,7 @@ services:
             echo "reload blocky"
             docker restart dns-blocky || true
             sleep 2
-            sync_fwd
+            check_fwd
           fi
         done
     depends_on:
@@ -138,6 +136,7 @@ services:
       TECHNITIUM_CERT_PATH: /etc/dns/ssl/dns-tls.pfx
       BLOCKY_CONFIG_PATH: /var/lib/blocky/config.yml
       BLOCKY_UPSTREAM: blocky
+      DNS_BLOCKY_IP: ${DNS_BLOCKY_IP:-172.18.0.100}
       PANEL_DATA_DIR: /var/lib/panel
       PANEL_TLS_DIR: /var/lib/nginx-ssl
       PANEL_NGINX_CONTAINER: dns-nginx

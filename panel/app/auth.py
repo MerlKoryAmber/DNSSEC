@@ -122,15 +122,14 @@ async def login(body: LoginBody, request: Request, response: Response):
         _record_login_fail(ip)
         raise HTTPException(status_code=502, detail="Auth backend did not return a token")
     _clear_login_fails(ip)
-    # для sync-blocky-forwarder.sh (не .env руками)
-    if str(body.user).strip().lower() == "admin":
-        try:
-            from . import tech_secret
-
-            tech_secret.store_admin_password(body.password)
-        except Exception:
-            pass
     set_token_cookie(response, token, secure=_request_is_https(request))
+    # hybrid B: чужой пароль на диск не пишем — sync forwarder сессией
+    try:
+        from . import blocky_glue
+
+        await blocky_glue.ensure_technitium_points_at_blocky(TechnitiumClient(token=token))
+    except Exception:
+        pass
     return {
         "username": data.get("username"),
         "displayName": data.get("displayName"),
@@ -177,10 +176,4 @@ async def change_password(body: ChangePasswordBody, client: TechnitiumClient = D
     except TechnitiumError as exc:
         code = 401 if getattr(exc, "status", None) in ("invalid-password", "invalid-token", "2fa-required") else 400
         raise HTTPException(status_code=code, detail=exc.message) from exc
-    try:
-        from . import tech_secret
-
-        tech_secret.store_admin_password(body.newPassword)
-    except Exception:
-        pass
     return {"ok": True}
