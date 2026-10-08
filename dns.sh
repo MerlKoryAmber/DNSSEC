@@ -145,11 +145,14 @@ cmd_uninstall() {
     echo -e "${red}ERROR:${plain} $UNINSTALL_SH not found"
     return 1
   fi
-  if ! confirm "Uninstall DNS Panel stack (compose down)?"; then
+  echo "Uninstall will: compose down (dns-* only), remove /usr/bin/dns, firewall ports, install.env."
+  echo "Will NOT touch 2fa_*, /opt/spm, /opt/radiusproxy. Data dir /opt/dns — спросит отдельно."
+  if ! confirm "Uninstall DNS Panel stack?"; then
     echo "Cancelled."
     return 0
   fi
-  bash "$UNINSTALL_SH"
+  # --yes: не спрашивать второй раз «yes» (раньше меню y, скрипт ждал строго yes → Cancelled)
+  bash "$UNINSTALL_SH" --yes
 }
 
 cmd_password() {
