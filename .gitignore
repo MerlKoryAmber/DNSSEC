@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 panel/.venv/
 config/technitium/
+config/panel/technitium_admin.pass
+config/panel/session_secret
 config/nginx/ssl/*
 !config/nginx/ssl/.gitkeep
 *.log
