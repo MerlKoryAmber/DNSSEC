@@ -1434,10 +1434,11 @@
     let totalEntries = 0;
     let logAllowed = false;
     // только после Apply — не при наборе текста
+    // старт UI: Any type / Any protocol (как в тулбаре); если Log allowed off — syncForced → Blocked
     const applied = {
       qname: "",
       clientIp: "",
-      responseType: "Blocked",
+      responseType: "",
       protocol: "",
       suspiciousOnly: false,
     };
@@ -1481,8 +1482,6 @@
     const protoSel = document.getElementById("logProto");
     const allowedToggle = document.getElementById("logAllowedToggle");
     const susOnly = document.getElementById("logSusOnly");
-    typeSel.value = applied.responseType;
-    susOnly.checked = !!applied.suspiciousOnly;
 
     function syncAllowedTypeOptions() {
       typeSel.querySelectorAll("option[data-allowed-only]").forEach((opt) => {
@@ -1512,10 +1511,12 @@
     function writeDraft(f) {
       document.getElementById("logQname").value = f.qname || "";
       document.getElementById("logClient").value = f.clientIp || "";
-      typeSel.value = f.responseType;
+      typeSel.value = f.responseType == null ? "" : f.responseType;
       protoSel.value = f.protocol || "";
       susOnly.checked = !!f.suspiciousOnly;
     }
+
+    writeDraft(applied);
 
     function badgeClass(rt) {
       const t = String(rt || "");
@@ -1623,6 +1624,8 @@
         if (typeof data.logAllowedQueries === "boolean") {
           logAllowed = data.logAllowedQueries;
           syncAllowedTypeOptions();
+          // sync может сменить type при !logAllowed — вернуть селекты к applied
+          writeDraft(applied);
         }
         if (data.logger && data.logger.installedNow) {
           toast("Query Logs (Sqlite) installed");
@@ -1722,7 +1725,8 @@
     document.getElementById("btnLogNext").addEventListener("click", () => {
       if (page < totalPages) { page += 1; loadLog(); }
     });
-    syncAllowedTypeOptions();
+    // не звать syncAllowedTypeOptions до ответа API: logAllowed ещё false → насильно Blocked
+    writeDraft(applied);
     await loadLog();
   }
 
