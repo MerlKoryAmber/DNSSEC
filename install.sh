@@ -240,7 +240,9 @@ compose_up() {
   . "$TARGET_DIR/docker-host-proxy.sh"
   dns_configure_docker_host_proxy
   dns_load_host_proxy
-  dns_assert_registry_pull_path || die "нет пути к registry (proxy или direct)"
+  if ! dns_assert_registry_pull_path; then
+    die "нет пути к registry (HTTP(S)_PROXY в /etc/environment или proxy= в dnf.conf)"
+  fi
   export HTTP_PROXY HTTPS_PROXY NO_PROXY
   export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
   log "docker compose up (project=${COMPOSE_PROJECT}) — только сервисы dns-*"

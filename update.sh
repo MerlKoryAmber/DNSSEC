@@ -86,11 +86,14 @@ sync_install_env() {
   tls=9443
   dot=853
   if [ -f "${DNS_DIR}/.env" ]; then
+    # .env may reference unset vars — don't kill update under set -u
+    set +u
     # shellcheck disable=SC1090
     set -a
     # shellcheck disable=SC1091
-    . "${DNS_DIR}/.env"
+    . "${DNS_DIR}/.env" || echo "[dns-update] WARN: .env source failed"
     set +a
+    set -u
     ui="${DNS_UI_PORT:-$ui}"
     tls="${DNS_UI_TLS_PORT:-$tls}"
     dot="${DNS_DOT_PORT:-$dot}"
@@ -200,17 +203,27 @@ else
 fi
 
 install_cli
+echo "[3b/4] sync install.env…"
 sync_install_env
 
 # dockerd pull via host proxy (containers still cleared by compose x-proxy-guard)
+echo "[3c/4] host proxy / registry check…"
+if [ ! -f "${DNS_DIR}/docker-host-proxy.sh" ]; then
+  echo -e "${red}ERROR:${plain} missing ${DNS_DIR}/docker-host-proxy.sh" >&2
+  exit 1
+fi
 # shellcheck disable=SC1091
 . "${DNS_DIR}/docker-host-proxy.sh"
 dns_configure_docker_host_proxy
 dns_load_host_proxy
-dns_assert_registry_pull_path || {
-  echo "[dns-update] ERROR: нет пути к registry (задай HTTP(S)_PROXY или dnf proxy=)" >&2
+if ! dns_assert_registry_pull_path; then
+  echo -e "${red}ERROR:${plain} update stopped before compose (proxy / registry)." >&2
+  echo "Code already synced to ${DNS_DIR}. Fix proxy, then:" >&2
+  echo "  bash ${DNS_DIR}/update.sh --keep-data" >&2
+  echo "или только compose:" >&2
+  echo "  cd ${DNS_DIR} && docker compose -p ${COMPOSE_PROJECT} up -d --build" >&2
   exit 1
-}
+fi
 export HTTP_PROXY HTTPS_PROXY NO_PROXY
 export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
 
@@ -231,8 +244,10 @@ echo ""
 echo -e "${green}OK:${plain} update finished"
 echo "CLI: /usr/bin/dns"
 if [ -f "${DNS_DIR}/.env" ]; then
+  set +u
   # shellcheck disable=SC1091
   set -a; . "${DNS_DIR}/.env"; set +a
+  set -u
 fi
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 echo "Panel: http://${ip:-HOST}:${DNS_UI_PORT:-9080}/"
