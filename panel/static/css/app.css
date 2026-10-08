@@ -616,6 +616,10 @@ table.data tr.is-disabled td {
   background: color-mix(in srgb, var(--ir-warning) 18%, transparent);
   color: var(--ir-warning);
 }
+.badge-danger {
+  background: color-mix(in srgb, var(--ir-danger, #e85d5d) 20%, transparent);
+  color: var(--ir-danger, #e85d5d);
+}
 
 .empty {
   height: 100%;

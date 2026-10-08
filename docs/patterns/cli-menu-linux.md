@@ -1,8 +1,9 @@
 # Pattern: Linux CLI management menu (DNS Panel)
 
-Дата: 2026-10-02, 17:40 МСК.  
+Дата: 2026-10-02, 17:55 МСК.  
 Источник идеи: squid-panel `docs/patterns/cli-menu-linux.md`.  
-Адаптация под `/opt/dns` + Docker Compose (Technitium + Blocky + panel).
+Адаптация под `/opt/dns` + Docker Compose (Technitium + Blocky + panel).  
+Актуально с `main` @ `4d931c1` (см. handoff CURRENT).
 
 ---
 
@@ -29,7 +30,7 @@
 | Без аргументов | Интерактивное меню. |
 | С аргументом | Сразу действие; exit ≠ 0 при ошибке. |
 | Опасное | Confirm `[y/N]`; wipe данных — **два** confirm. |
-| Не трогать | `/opt/radiusproxy`, `/opt/spm`, чужие контейнеры. `80`/`443` — ок для панели, если свободны (`ss`). |
+| Не трогать | podman `2fa_*` (80/443/8000/8030/1812), чужие `/opt/*`. |
 | Update | `update.sh` — clone GitHub, rsync кода; keep: technitium, panel, **blocky**, nginx ssl/generated, `.env`. |
 | Язык меню | English labels (как UI). |
 

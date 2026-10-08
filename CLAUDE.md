@@ -135,7 +135,7 @@ Lab-деплой в `/opt/dns` (scp + при необходимости `docker 
 ## 18. Убирать за собой диск
 
 Свои temp/архивы/логи — удалять. Пользовательские файлы и данные проекта не
-трогать. Чужие сервисы на lab (в т.ч. `/opt/spm`, squid и пр.) — **не трогать**.
+трогать. Чужие сервисы на lab (в т.ч. podman **2fa_***, `/opt/spm`, squid) — **не трогать**.
 
 ## 19. Приёмка и документация — после
 
@@ -170,9 +170,9 @@ Lab-деплой в `/opt/dns` (scp + при необходимости `docker 
 - **Handoff:** `docs/agent_reports/handoff/CURRENT.md`
 - **Карта кода:** `docs/CODEMAP.md`
 - **Владелец:** Merl
-- **Стек:** Technitium (лицо) + Blocky (upstreams) + FastAPI panel + JS UI + nginx; Docker Compose; CentOS 9 lab
-- **Lab:** `192.168.0.178`, каталог `/opt/dns`. Чужой UI Technitium (:5380) наружу не отдавать.
-- **Не трогать без команды:** push, force-push, `git add .`, рестарт чужих сервисов, чужие `/opt/*`
-- **Секреты:** пароли lab, `.env`, токены Technitium — не в git
+- **Стек:** Technitium (лицо) + Blocky (upstreams) + FastAPI panel + JS UI + nginx; Docker Compose; CentOS/el9 lab
+- **Lab:** `172.29.110.165`, каталог `/opt/dns`. Сосед podman **2fa_*** (:80/:443/:8000/:8030/:1812) — не трогать. Чужой UI Technitium (:5380) наружу не отдавать.
+- **Не трогать без команды:** push, force-push, `git add .`, рестарт чужих сервисов, чужие `/opt/*`, `podman stop` 2fa_*
+- **Секреты:** пароли lab (SSH/root), `.env`, токены Technitium — не в git
 - **ADR:** `docs/adr/`. Отчёты: `docs/agent_reports/`
 - **UX:** `docs/design/UI_UX.md` — обязателен. Перед «готово» по UI — попунктная сверка **всего** документа (высоты+ширины+отступы+скролл+empty+модалки). Контент на всю область work, без узкой карточки и пустоты. Правило: `.cursor/rules/ui-ux-complete.mdc`.

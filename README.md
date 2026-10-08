@@ -2,7 +2,9 @@
 
 Свой web-UI (FastAPI + JS) управляет DNS-стеком. Консоль Technitium (`:5380`) наружу не отдаётся.
 
-Репозиторий: https://github.com/MerlKoryAmber/DNSSEC · ветка `main`
+Репозиторий: https://github.com/MerlKoryAmber/DNSSEC · ветка `main` @ `4d931c1`
+
+Статус для агента: `docs/agent_reports/handoff/CURRENT.md` · скелет: `docs/SKELETON.md`
 
 ## Стек
 
@@ -15,6 +17,21 @@
 
 Hybrid B: Technitium спереди, Blocky сзади (ADR 0002). Вариант «Blocky спереди» отвергнут.
 
+## Lab
+
+| | |
+|--|--|
+| Хост | `172.29.110.165` |
+| Каталог | `/opt/dns` |
+| UI HTTP | http://172.29.110.165:9080/ |
+| UI HTTPS | https://172.29.110.165:9443/ |
+| DoH | `http://HOST:9080/dns-query` |
+| DoT | `HOST:853` |
+| DNS | `HOST:53` |
+
+Сосед: podman **2fa_*** (:80/:443/:8000/:8030/:1812) — **не останавливать**.  
+Старый `192.168.0.178` — не актуален.
+
 ## Порты по умолчанию
 
 | Сервис | Порт |
@@ -25,12 +42,10 @@ Hybrid B: Technitium спереди, Blocky сзади (ADR 0002). Вариан�
 | UI HTTPS | `9443` |
 | Technitium API | `127.0.0.1:5380` (не снаружи) |
 
-Смена UI HTTP/HTTPS и «Enable HTTP» — только CLI: `sudo dns ports` (не веб-UI).
+Смена UI HTTP/HTTPS и «Enable HTTP» — только CLI: `sudo dns ports` (не веб-UI).  
+На этой lab `80`/`443` заняты 2fa — панели их не брать.
 
-Чужие стеки (`/opt/radiusproxy`, `/opt/spm`) **не трогаем**.  
-Порты `80`/`443` можно назначить панели через `dns ports`, если на хосте свободны.
-
-Логин панели = аккаунт Technitium (смените дефолт `admin` / `admin`).
+Логин панели = аккаунт Technitium (смените дефолт).
 
 ## Установка с GitHub
 

@@ -1439,6 +1439,7 @@
       clientIp: "",
       responseType: "Blocked",
       protocol: "",
+      suspiciousOnly: false,
     };
 
     shell("Query log", `
@@ -1460,6 +1461,9 @@
         <option value="Tls">DoT</option>
         <option value="Https">DoH</option>
       </select>
+      <label class="inline toolbar-check" title="Entropy / long labels / rare qtype / client burst">
+        <input type="checkbox" id="logSusOnly" /> Suspicious
+      </label>
       <button type="button" class="btn" id="btnLogApply">Apply</button>
       <button type="button" class="btn btn-secondary" id="btnLogClear">Clear</button>
       <div class="toolbar-spacer"></div>
@@ -1476,7 +1480,9 @@
     const typeSel = document.getElementById("logType");
     const protoSel = document.getElementById("logProto");
     const allowedToggle = document.getElementById("logAllowedToggle");
+    const susOnly = document.getElementById("logSusOnly");
     typeSel.value = applied.responseType;
+    susOnly.checked = !!applied.suspiciousOnly;
 
     function syncAllowedTypeOptions() {
       typeSel.querySelectorAll("option[data-allowed-only]").forEach((opt) => {
@@ -1499,6 +1505,7 @@
         clientIp: (document.getElementById("logClient").value || "").trim(),
         responseType: typeSel.value,
         protocol: protoSel.value,
+        suspiciousOnly: !!susOnly.checked,
       };
     }
 
@@ -1507,6 +1514,7 @@
       document.getElementById("logClient").value = f.clientIp || "";
       typeSel.value = f.responseType;
       protoSel.value = f.protocol || "";
+      susOnly.checked = !!f.suspiciousOnly;
     }
 
     function badgeClass(rt) {
@@ -1514,6 +1522,17 @@
       if (/Blocked/i.test(t)) return "badge badge-warn";
       if (/Cached|Recursive|Authoritative/i.test(t)) return "badge";
       return "badge badge-muted";
+    }
+
+    function suspicionBadge(sus) {
+      if (!sus || !sus.level || sus.level === "ok") {
+        return `<span class="badge badge-muted" title="score ${sus && sus.score != null ? sus.score : 0}">ok</span>`;
+      }
+      const reasons = (sus.reasons || []).join(", ");
+      const title = `score ${sus.score}` + (reasons ? ` · ${reasons}` : "")
+        + (sus.entropy != null ? ` · H=${sus.entropy}` : "");
+      const cls = sus.level === "high" ? "badge badge-danger" : "badge badge-warn";
+      return `<span class="${cls}" title="${escapeHtml(title)}">${escapeHtml(sus.level)}</span>`;
     }
 
     function renderEntries(entries) {
@@ -1525,7 +1544,9 @@
             ? (logAllowed
               ? "Nothing matched. Widen filters or Apply after Clear."
               : "Only blocked queries are stored. Turn on «Log allowed» to record the rest.")
-            : "Nothing on this page."
+            : (applied.suspiciousOnly
+              ? "No suspicious rows on this fetch. Try «Log allowed» + Any type, or next page."
+              : "Nothing on this page.")
         }</span></div>`;
         return;
       }
@@ -1539,6 +1560,7 @@
               <th>Type</th>
               <th>Proto</th>
               <th>Response</th>
+              <th>Risk</th>
               <th></th>
             </tr>
           </thead>
@@ -1548,6 +1570,7 @@
               const qn = e.qname || "—";
               const rt = e.responseType || e.rcode || "—";
               const isBlocked = /Blocked/i.test(String(e.responseType || ""));
+              const sus = e.suspicion || null;
               return `<tr>
                 <td class="nowrap">${escapeHtml(ts)}</td>
                 <td>${escapeHtml(e.clientIpAddress || "—")}</td>
@@ -1555,6 +1578,7 @@
                 <td>${escapeHtml(e.qtype || "—")}</td>
                 <td>${escapeHtml(e.protocol || "—")}</td>
                 <td><span class="${badgeClass(rt)}">${escapeHtml(rt)}</span></td>
+                <td>${suspicionBadge(sus)}</td>
                 <td class="actions">
                   ${isBlocked ? `<button type="button" class="btn btn-secondary btn-sm" data-allow="${escapeHtml(qn)}">Allow</button>` : ""}
                 </td>
@@ -1590,6 +1614,7 @@
           clientIp: applied.clientIp,
           responseType: applied.responseType,
           protocol: applied.protocol,
+          suspiciousOnly: applied.suspiciousOnly ? "true" : "",
           ensure: true,
         });
         page = Number(data.pageNumber) || page;
@@ -1643,6 +1668,7 @@
       applied.clientIp = d.clientIp;
       applied.responseType = d.responseType;
       applied.protocol = d.protocol;
+      applied.suspiciousOnly = d.suspiciousOnly;
       page = 1;
       loadLog();
     }
@@ -1652,6 +1678,7 @@
       applied.clientIp = "";
       applied.responseType = logAllowed ? "" : "Blocked";
       applied.protocol = "";
+      applied.suspiciousOnly = false;
       writeDraft(applied);
       page = 1;
       loadLog();

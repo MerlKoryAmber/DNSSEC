@@ -42,16 +42,24 @@
 
 | | |
 |--|--|
-| Хост (истор.) | `192.168.0.178` CentOS Stream 9 — **сейчас лабы нет** |
+| Хост | **`172.29.110.165`** (el9) — местная лаба с 2026-10-08 |
+| SSH | `root@172.29.110.165` (пароль не в git) |
 | Каталог | `/opt/dns` |
-| UI | `http://HOST:9080/` · `https://HOST:9443/` (порты → `dns ports`) |
-| Логин | Technitium (не коммитить пароли) |
+| UI | `http://172.29.110.165:9080/` · `https://172.29.110.165:9443/` |
+| Логин панели | Technitium (не коммитить пароли) |
+| Сосед | **2fa_*** (podman): :80 :443 :8000 :8030 :1812 — **не трогать** |
+| Было | `192.168.0.178` — архив |
 
 **Публичные порты стека (default):** `53/tcp+udp`, `853/tcp` (DoT), `9080/tcp` (UI HTTP), `9443/tcp` (UI HTTPS).
 
-**Не трогать:** `/opt/radiusproxy`, `/opt/spm`, контейнеры чужие, порты `80/443/8000/1812/1813`, `systemctl` чужого, `git push` / `git add .` без команды.
+**Не трогать:** podman `2fa_*`, чужие `/opt/*`, `systemctl` чужого, `git push` /
+`git add .` без команды. Порты `80`/`443` панели — только если свободны
+(`dns ports` + `ss`); на этой lab они заняты 2fa_web.
 
-**Деплой:** при наличии lab — scp точечно в `/opt/dns` → `docker compose -p dns up -d --build …` → человек смотрит → **потом** предложить commit → отдельным шагом push. После recreate `panel` — часто нужен `docker restart dns-nginx` (stale upstream → 502). Без lab — только код/docs, commit/push по команде.
+**Деплой:** scp точечно в `/opt/dns` → `docker compose -p dns up -d --build …` →
+человек смотрит → **потом** предложить commit → отдельно push.
+После recreate `panel` — часто `docker restart dns-nginx` (502).
+`install.sh` ставит Docker CE рядом с podman — **не** останавливать 2fa.
 
 ---
 
@@ -130,6 +138,7 @@
 | `blocky_config.py` | encode/decode/read/write Blocky YAML |
 | `blocklist_presets.py` | curated blocklist URLs (seed выключенными) |
 | `query_logs.py` | ensure Query Logs (Sqlite) + resolve logger |
+| `dns_suspicion.py` | эвристики tunnel/DGA-ish на строках query log (entropy/len/burst) |
 | `host_stats.py` | CPU/RAM (/proc) + probes Technitium/Blocky/Nginx |
 | `panel_tls.py` | Panel UI TLS (nginx PEM); listen ports пишет CLI `dns ports` |
 | `ui_prefs.py` | UI prefs in `ui.yml` (timezone display, default Europe/Moscow) |
@@ -153,7 +162,7 @@
 | Forwarders | `routes.py` + `blocky_config.py` | `app.js` `#/forwarders` | Blocky YAML + glue Technitium |
 | Client protocol | `routes.py` settings | `app.js` `#/client-protocol` | Technitium |
 | Blocking | `routes.py` `/api/blocking*` + `blocklist_store.py` | `app.js` `#/blocking` | Lists / Allowed / Blocked |
-| Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` | `app.js` `#/query-log` | Technitium Query Logs Sqlite |
+| Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` + `dns_suspicion.py` | `app.js` `#/query-log` | Technitium Query Logs + risk heuristics |
 | Settings | `routes.py` + `panel_tls.py` | `#/settings` Panel TLS PEM; порты — CLI | Blocking · Panel TLS |
 | Panel listen ports | `dns.sh` `ports` (+ `panel_tls.write_listen_settings`) | — | `.env` / `ui.yml` / `http.conf` |
 | Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` | `app.js` `#/dashboard` | Technitium stats + CPU/RAM + services |
@@ -206,8 +215,10 @@
 
 ## 7. Грабли (лаборатория)
 
+- После recreate `panel` → 502 на `/api` → `docker restart dns-nginx`.
 - **update keep-data** раньше затирал `config/blocky/config.yml` дефолтом
-  из GitHub → сброс Forwarders. Exclude `config/blocky/` (+ seed если нет файла).
+  из GitHub → сброс Forwarders. С `4d931c1`: exclude `config/blocky/`
+  (+ seed если файла нет).
 - Technitium forwarder = **IP** Blocky, не имя сервиса.
 - **Host HTTP_PROXY в контейнерах** → service mesh ломается. Compose
   держит пустые `*_PROXY` + `NO_PROXY` (см. `x-proxy-guard`). Не прокидывать
@@ -225,9 +236,8 @@
 - **Panel TLS:** PEM `config/nginx/ssl/panel.{crt,key}`; HTTPS default `:9443`.
   HTTP on/off — `nginx/generated/http.conf` (serve vs 301→HTTPS).
   Смена портов / HTTP enable — **`sudo dns ports`**, не веб-UI.
-- **Upstream DoT (исходящий :853):** с lab `192.168.0.178` TCP/853 наружу =
-  Connection refused (сеть/провайдер). Forwarders kind=DoT в Test/Save будут
-  падать; DoH/Classic с lab работают. Не путать с client DoT на входящем 853.
+- **Upstream DoT (исходящий :853):** с lab исходящий TCP/853 наружу может
+  резаться сетью — не путать с client DoT на входящем 853.
 - Писать Blocky YAML **in-place** (тот же inode), не rename через tmp→replace на file bind.
 - Cache Technitium после смены DNSSEC: `/api/cache/flush` на :5380.
 - Не `git add .`; секреты / `.env` не коммитить.

@@ -829,9 +829,11 @@ async def get_blocking_log(
     end: str | None = None,
     descending: bool = True,
     ensure: bool = True,
+    suspiciousOnly: bool = False,
     client: TechnitiumClient = Depends(get_client),
 ):
     """Query logs filtered for blocked DNS (Technitium Query Logs app)."""
+    from . import dns_suspicion
     from . import query_logs as ql
 
     try:
@@ -858,11 +860,15 @@ async def get_blocking_log(
             ) from exc
         raise _map_error(exc) from exc
 
+    # When filtering suspicious in-process, pull a wider page then trim.
+    want = min(max(1, perPage), 200)
+    fetch_n = min(200, max(want * 4, want)) if suspiciousOnly else want
+
     params: dict[str, Any] = {
         "name": logger["name"],
         "classPath": logger["classPath"],
         "pageNumber": max(1, page),
-        "entriesPerPage": min(max(1, perPage), 200),
+        "entriesPerPage": fetch_n,
         "descendingOrder": "true" if descending else "false",
     }
     if qname:
@@ -893,6 +899,12 @@ async def get_blocking_log(
         raise _map_error(exc) from exc
 
     resp = raw.get("response") or raw
+    entries = dns_suspicion.enrich_entries(
+        list(resp.get("entries") or []),
+        suspicious_only=suspiciousOnly,
+    )
+    if suspiciousOnly:
+        entries = entries[:want]
     from . import ui_prefs
 
     log_allowed = ui_prefs.read_log_allowed_queries()
@@ -902,7 +914,12 @@ async def get_blocking_log(
         "pageNumber": resp.get("pageNumber") or page,
         "totalPages": resp.get("totalPages") or 1,
         "totalEntries": resp.get("totalEntries") or 0,
-        "entries": resp.get("entries") or [],
+        "entries": entries,
+        "suspiciousOnly": suspiciousOnly,
+        "suspicionNote": (
+            "Heuristics on fetched rows (entropy / label length / rare qtype / client burst). "
+            "Not commercial TI. «Log allowed» needed to see non-blocked tunnel noise."
+        ),
     }
 
 
