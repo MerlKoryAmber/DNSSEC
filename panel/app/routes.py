@@ -571,8 +571,13 @@ async def get_blocking(client: TechnitiumClient = Depends(get_client)):
         raise _map_error(exc) from exc
     resp = data.get("response") or data
     view = _blocking_view(resp)
-    # каталог листов — в панели (disabled переживает Technitium)
+    # каталог листов — в панели (disabled переживает Technitium);
+    # пустой store → curated presets (все off), не «No lists»
     items = blocklist_store.read_items()
+    if not items:
+        items = blocklist_store.seed_from_presets_only()
+    else:
+        items = blocklist_store.ensure_presets()
     view["blockListUrls"] = blocklist_store.lines_from_items(items)
     view["blockListItems"] = items
     return {"response": view}
