@@ -26,28 +26,45 @@ dns_proxy_set_if_empty() {
 
 dns_proxy_ingest_line() {
   local line="$1" key val
+  # strip CR (Windows-edited files), comments, export, spaces
+  line="${line%$'\r'}"
   [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && return 0
-  # Environment="HTTP_PROXY=..." (systemd drop-in)
-  if [[ "$line" =~ Environment=\"([A-Za-z0-9_]+)=([^\"]*)\" ]]; then
+  line="${line#"${line%%[![:space:]]*}"}"  # ltrim
+  # skip non-assignments
+  [[ "$line" == *=* ]] || return 0
+
+  # systemd: Environment="HTTP_PROXY=http://..."
+  if [[ "$line" =~ ^Environment=\"([A-Za-z0-9_]+)=([^\"]*)\" ]]; then
     key="${BASH_REMATCH[1]}"
     val="${BASH_REMATCH[2]}"
-  elif [[ "$line" =~ Environment=([A-Za-z0-9_]+)=(.*) ]]; then
+  elif [[ "$line" =~ ^Environment=([A-Za-z0-9_]+)=(.*) ]]; then
     key="${BASH_REMATCH[1]}"
     val="${BASH_REMATCH[2]}"
-    val="${val%\"}"
-    val="${val#\"}"
   else
+    # export HTTP_PROXY=... | HTTP_PROXY = ...
+    line="${line#export }"
+    line="${line#export	}"
     key="${line%%=*}"
     val="${line#*=}"
-    val="${val%\"}"
-    val="${val#\"}"
-    val="${val%\'}"
-    val="${val#\'}"
   fi
+  key="${key%"${key##*[![:space:]]}"}"  # rtrim key
+  key="${key#"${key%%[![:space:]]*}"}"  # ltrim key
+  val="${val%"${val##*[![:space:]]}"}"
+  val="${val#"${val%%[![:space:]]*}"}"
+  val="${val%\"}"
+  val="${val#\"}"
+  val="${val%\'}"
+  val="${val#\'}"
+  val="${val%$'\r'}"
+
   case "$key" in
     HTTP_PROXY|http_proxy) dns_proxy_set_if_empty HTTP "$val" ;;
     HTTPS_PROXY|https_proxy) dns_proxy_set_if_empty HTTPS "$val" ;;
     NO_PROXY|no_proxy) dns_proxy_set_if_empty NO "$val" ;;
+    ALL_PROXY|all_proxy)
+      dns_proxy_set_if_empty HTTP "$val"
+      dns_proxy_set_if_empty HTTPS "$val"
+      ;;
     proxy|Proxy)
       dns_proxy_set_if_empty HTTP "$val"
       dns_proxy_set_if_empty HTTPS "$val"
@@ -55,28 +72,28 @@ dns_proxy_ingest_line() {
   esac
 }
 
+dns_proxy_ingest_file() {
+  local f="$1" line
+  [[ -f "$f" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    dns_proxy_ingest_line "$line"
+  done <"$f"
+}
+
 dns_load_host_proxy() {
-  local f line
+  local f dir="${DNS_INSTALL_DIR:-${DNS_DIR:-/opt/dns}}"
 
-  if [[ -f /etc/environment ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      dns_proxy_ingest_line "$line"
-    done </etc/environment
-  fi
+  # shell env already wins (set_if_empty only fills gaps)
 
+  dns_proxy_ingest_file /etc/environment
   for f in /etc/systemd/system/docker.service.d/*.conf; do
-    [[ -f "$f" ]] || continue
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      dns_proxy_ingest_line "$line"
-    done <"$f"
+    dns_proxy_ingest_file "$f"
   done
-
-  for f in /etc/dnf/dnf.conf /etc/yum.conf; do
-    [[ -f "$f" ]] || continue
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      dns_proxy_ingest_line "$line"
-    done <"$f"
-  done
+  dns_proxy_ingest_file /etc/dnf/dnf.conf
+  dns_proxy_ingest_file /etc/yum.conf
+  # panel .env (часто сюда же кладут HTTP_PROXY на корп)
+  dns_proxy_ingest_file "${dir}/.env"
+  dns_proxy_ingest_file /opt/dns/.env
 
   HTTP_PROXY="${HTTP_PROXY:-${http_proxy:-}}"
   HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-${HTTP_PROXY:-}}}"
@@ -93,10 +110,12 @@ dns_configure_docker_host_proxy() {
   dns_load_host_proxy
 
   if [[ -z "${HTTP_PROXY}" && -z "${HTTPS_PROXY}" ]]; then
-    echo "[dns-proxy] HTTP(S)_PROXY не найден (env / /etc/environment / docker.service.d / dnf.conf)"
+    echo "[dns-proxy] HTTP(S)_PROXY не найден (shell /etc/environment docker.d dnf /opt/dns/.env)"
     echo "[dns-proxy] dockerd без drop-in — pull base images только напрямую"
+    echo "[dns-proxy] debug: env HTTP_PROXY=${HTTP_PROXY:-<empty>} http_proxy=${http_proxy:-<empty>}"
     return 0
   fi
+  echo "[dns-proxy] using $(dns_proxy_redact "${HTTPS_PROXY:-$HTTP_PROXY}")"
 
   mkdir -p "$drop_dir"
   tmp="$(mktemp)"

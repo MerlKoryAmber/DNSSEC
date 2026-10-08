@@ -39,11 +39,13 @@ load_install_meta() {
     . "$INSTALL_META"
   fi
   if [ -f "${DNS_DIR}/.env" ]; then
+    set +u
     # shellcheck disable=SC1090
     set -a
     # shellcheck disable=SC1091
-    . "${DNS_DIR}/.env"
+    . "${DNS_DIR}/.env" || true
     set +a
+    set -u
   fi
   UI_PORT="${DNS_UI_PORT:-$UI_PORT}"
   TLS_PORT="${DNS_UI_TLS_PORT:-$TLS_PORT}"
