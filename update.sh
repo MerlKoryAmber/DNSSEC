@@ -207,23 +207,17 @@ echo "[3b/4] sync install.env…"
 sync_install_env
 
 # dockerd pull via host proxy (containers still cleared by compose x-proxy-guard)
-echo "[3c/4] host proxy / registry check…"
+echo "[3c/4] host proxy…"
 if [ ! -f "${DNS_DIR}/docker-host-proxy.sh" ]; then
   echo -e "${red}ERROR:${plain} missing ${DNS_DIR}/docker-host-proxy.sh" >&2
   exit 1
 fi
 # shellcheck disable=SC1091
 . "${DNS_DIR}/docker-host-proxy.sh"
+echo "[3c/4] configure dockerd drop-in…"
 dns_configure_docker_host_proxy
 dns_load_host_proxy
-if ! dns_assert_registry_pull_path; then
-  echo -e "${red}ERROR:${plain} update stopped before compose (proxy / registry)." >&2
-  echo "Code already synced to ${DNS_DIR}. Fix proxy, then:" >&2
-  echo "  bash ${DNS_DIR}/update.sh --keep-data" >&2
-  echo "или только compose:" >&2
-  echo "  cd ${DNS_DIR} && docker compose -p ${COMPOSE_PROJECT} up -d --build" >&2
-  exit 1
-fi
+dns_assert_registry_pull_path
 export HTTP_PROXY HTTPS_PROXY NO_PROXY
 export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
 

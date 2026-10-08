@@ -147,65 +147,25 @@ dns_configure_docker_host_proxy() {
   if ! command -v systemctl >/dev/null 2>&1; then
     return 0
   fi
+  echo "[dns-proxy] daemon-reload…"
   systemctl daemon-reload || echo "[dns-proxy] WARN: daemon-reload failed"
   if systemctl is-active --quiet docker 2>/dev/null; then
-    echo "[dns-proxy] restart docker — pull через proxy (краткий рестарт контейнеров)"
+    echo "[dns-proxy] restart docker (1–2 мин, контейнеры dns-* кратко упадут)…"
     systemctl restart docker || echo "[dns-proxy] WARN: docker restart failed"
+    echo "[dns-proxy] docker снова up"
   fi
 }
 
-dns_registry_http_code() {
-  # stdout: numeric code or 000 — never non-zero exit (set -e safe)
-  local code
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "000"
-    return 0
-  fi
-  if command -v timeout >/dev/null 2>&1; then
-    code="$(timeout 8 curl -sS -o /dev/null -w '%{http_code}' https://registry-1.docker.io/v2/ 2>/dev/null)" || code="000"
-  else
-    code="$(curl -sS --connect-timeout 5 --max-time 8 -o /dev/null -w '%{http_code}' https://registry-1.docker.io/v2/ 2>/dev/null)" || code="000"
-  fi
-  [[ -z "$code" ]] && code="000"
-  echo "$code"
-  return 0
-}
-
-dns_local_base_images_ok() {
-  # True if compose can build without registry (bases already local)
-  docker image inspect python:3.12-slim >/dev/null 2>&1 || return 1
-  return 0
-}
-
-# Probe Docker Hub before compose --build.
-# Return 0 = continue; 1 = hard stop (print reason to stdout).
+# No network probe — curl→Hub на корп без proxy (или с долгим timeout) зависает
+# на «[3c/4]» и выглядит как поломка. Только load + drop-in + статус.
 dns_assert_registry_pull_path() {
-  local code
   dns_load_host_proxy
-
   if [[ -n "${HTTP_PROXY}${HTTPS_PROXY}" ]]; then
-    echo "[dns-proxy] build/pull path: proxy=$(dns_proxy_redact "${HTTPS_PROXY:-$HTTP_PROXY}")"
+    echo "[dns-proxy] OK proxy=$(dns_proxy_redact "${HTTPS_PROXY:-$HTTP_PROXY}") → compose"
     return 0
   fi
-
-  code="$(dns_registry_http_code)"
-  if [[ "$code" == "200" || "$code" == "401" ]]; then
-    echo "[dns-proxy] registry напрямую OK (HTTP ${code}), proxy не задан"
-    return 0
-  fi
-
-  if dns_local_base_images_ok; then
-    echo "[dns-proxy] WARN: Hub недоступен (HTTP ${code}), proxy нет — но python:3.12-slim уже локально, продолжаем"
-    return 0
-  fi
-
-  echo "[dns-proxy] ERROR: Docker Hub недоступен (HTTP ${code}) и HTTP(S)_PROXY не задан."
-  echo "[dns-proxy] UPDATE ОСТАНОВЛЕН до compose — иначе снова вечный 0B на FROM."
-  echo "[dns-proxy] Задай proxy и повтори: sudo dns → Update  (или: bash /opt/dns/update.sh --keep-data)"
-  echo "[dns-proxy]   /etc/environment:"
-  echo "[dns-proxy]     HTTP_PROXY=http://USER:PASS@proxy.example:3128"
-  echo "[dns-proxy]     HTTPS_PROXY=http://USER:PASS@proxy.example:3128"
-  echo "[dns-proxy]     NO_PROXY=localhost,127.0.0.1,::1"
-  echo "[dns-proxy]   или proxy= в /etc/dnf/dnf.conf"
-  return 1
+  echo "[dns-proxy] WARN: HTTP(S)_PROXY пуст после load (shell/environment/docker.d/dnf/.env)"
+  echo "[dns-proxy] продолжаем compose — если FROM повиснет 0B, проверь dockerd drop-in:"
+  echo "[dns-proxy]   systemctl show docker -p Environment | tr ' ' '\\n' | grep -i proxy"
+  return 0
 }
