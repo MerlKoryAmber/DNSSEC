@@ -24,8 +24,8 @@ services:
     restart: unless-stopped
     logging: *dns-logging
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
+      - "${DNS_BIND_IP:-0.0.0.0}:53:53/udp"
+      - "${DNS_BIND_IP:-0.0.0.0}:53:53/tcp"
       - "${DNS_DOT_PORT:-853}:853/tcp"
       - "127.0.0.1:5380:5380"
     volumes:

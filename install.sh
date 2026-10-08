@@ -30,23 +30,65 @@ port_in_use() {
   ss -lntu 2>/dev/null | awk '{print $1,$5}' | grep -E "${proto}.*[:.]${port}$" >/dev/null 2>&1
 }
 
+# true if port is taken on wildcard / primary host IP (podman CNI 10.88/10.89 ignored)
+host_port_busy() {
+  local port="$1"
+  local primary
+  primary="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  ss -lntu 2>/dev/null | awk -v p="$port" -v hip="$primary" '
+    {
+      a = $5
+      if (a !~ ":" p "$") next
+      sub(":" p "$", "", a)
+      gsub(/^\[|\]$/, "", a)
+      if (a == "*" || a == "0.0.0.0" || a == "::" || (hip != "" && a == hip)) exit 0
+      if (a ~ /^10\.(88|89)\./) next
+      next
+    }
+    END { exit 1 }
+  '
+}
+
+primary_host_ip() {
+  hostname -I 2>/dev/null | awk '{print $1}'
+}
+
+ensure_dns_bind_ip() {
+  # If :53 only on podman aardvark (10.89.x), publish DNS on host LAN IP — not 0.0.0.0
+  local primary envf="$TARGET_DIR/.env"
+  primary="$(primary_host_ip)"
+  [[ -n "$primary" ]] || return 0
+  if host_port_busy 53; then
+    return 0
+  fi
+  if port_in_use 53 tcp || port_in_use 53 udp; then
+    log "порт 53 на CNI/podman — публикуем DNS на ${primary} (не трогаем aardvark)"
+    if [[ -f "$envf" ]] && grep -qE '^[[:space:]]*DNS_BIND_IP=' "$envf"; then
+      sed -i "s|^[[:space:]]*DNS_BIND_IP=.*|DNS_BIND_IP=${primary}|" "$envf"
+    else
+      echo "DNS_BIND_IP=${primary}" >>"$envf"
+    fi
+  fi
+}
+
 check_ports() {
   local p
-  for p in 53; do
-    if port_in_use "$p" tcp || port_in_use "$p" udp; then
-      die "порт 53 занят — освободите или смените схему (сейчас нужен классический DNS на 53)"
-    fi
-  done
-  if port_in_use "$DOT_PORT" tcp; then
+  if host_port_busy 53; then
+    die "порт 53 занят на хосте (0.0.0.0/primary) — освободите или смените схему"
+  fi
+  if port_in_use 53 tcp || port_in_use 53 udp; then
+    log "порт 53 занят только на CNI (podman) — OK, bind на LAN IP"
+  fi
+  if host_port_busy "$DOT_PORT"; then
     die "порт DoT ${DOT_PORT} занят"
   fi
-  if port_in_use "$UI_PORT" tcp; then
-    die "порт UI ${UI_PORT} занят (не используем 80/443 — они у radiusproxy)"
+  if host_port_busy "$UI_PORT"; then
+    die "порт UI ${UI_PORT} занят (не используем 80/443 соседей)"
   fi
-  if port_in_use "$TLS_PORT" tcp; then
+  if host_port_busy "$TLS_PORT"; then
     die "порт UI HTTPS ${TLS_PORT} занят"
   fi
-  for p in 80 443 8000; do
+  for p in 80 443 8000 8030; do
     if port_in_use "$p" tcp; then
       log "порт ${p} занят другим сервисом — OK, наш стек его не занимает"
     fi
@@ -274,6 +316,7 @@ main() {
   prepare_resolved
   firewall_ports
   sync_files
+  ensure_dns_bind_ip
   install_cli
   compose_up
   wait_technitium
