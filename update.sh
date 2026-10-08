@@ -150,32 +150,48 @@ if [ "${1:-}" != "--continue" ]; then
   cd /tmp 2>/dev/null || cd / || true
   echo "[1/4] Cloning…"
   rm -rf "$CLONE_NEW"
-  # What does THIS host resolve as tip? (ловит корп-кэш/зеркало)
-  echo -n "ls-remote main: "
-  tip="$(GIT_TERMINAL_PROMPT=0 git ls-remote "$REPO_URL" "refs/heads/${BRANCH}" 2>/dev/null | awk '{print $1; exit}')" || tip=""
-  echo "${tip:-<failed>}"
-  # no-cache headers — на случай HTTP-прокси, кэширующего smart-HTTP
+
+  tip_git=""
+  tip_api=""
+  tip_git="$(GIT_TERMINAL_PROMPT=0 git ls-remote "$REPO_URL" "refs/heads/${BRANCH}" 2>/dev/null | awk '{print $1; exit}')" || tip_git=""
+  echo "ls-remote ${BRANCH}: ${tip_git:-<failed>}"
+  # GitHub REST — другой путь, чем git smart-HTTP (корп иногда кэширует только git://https)
+  if command -v curl >/dev/null 2>&1; then
+    tip_api="$(curl -fsSL --connect-timeout 5 --max-time 20 \
+      -H 'Accept: application/vnd.github+json' \
+      -H 'Cache-Control: no-cache' \
+      "https://api.github.com/repos/MerlKoryAmber/DNSSEC/commits/${BRANCH}" 2>/dev/null \
+      | sed -n 's/.*"sha"[[:space:]]*:[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' | head -1)" || tip_api=""
+  fi
+  echo "api.github ${BRANCH}: ${tip_api:-<failed>}"
+
+  tip="${tip_api:-$tip_git}"
+  if [ -n "$tip_api" ] && [ -n "$tip_git" ] && [ "$tip_api" != "$tip_git" ]; then
+    echo -e "${yellow}WARN:${plain} ls-remote≠API — берём API (${tip_api:0:7}), похоже кэш git-proxy"
+    tip="$tip_api"
+  fi
+
   GIT_TERMINAL_PROMPT=0 git \
     -c http.extraHeader="Cache-Control: no-cache" \
     -c http.extraHeader="Pragma: no-cache" \
     clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$CLONE_NEW"
-  echo "Cloned:"
-  git -C "$CLONE_NEW" log -1 --oneline
   got="$(git -C "$CLONE_NEW" rev-parse HEAD)"
+  echo "Cloned: $(git -C "$CLONE_NEW" log -1 --oneline)"
+
+  # если clone на старом tip — дотянуть нужный SHA (обход кэша branch tip)
   if [ -n "$tip" ] && [ "$got" != "$tip" ]; then
-    echo -e "${yellow}WARN:${plain} ls-remote=${tip:0:7} ≠ clone=${got:0:7} — возможен кэш/зеркало proxy"
+    echo "Fetching pinned tip ${tip:0:12}…"
+    GIT_TERMINAL_PROMPT=0 git -C "$CLONE_NEW" \
+      -c http.extraHeader="Cache-Control: no-cache" \
+      fetch --depth 1 origin "$tip" \
+      && git -C "$CLONE_NEW" checkout --force "$tip" \
+      || echo -e "${yellow}WARN:${plain} pin fetch failed, остаёмся на ${got:0:7}"
+    echo "Now: $(git -C "$CLONE_NEW" log -1 --oneline)"
   fi
-  # Old hung step echo (split needle — иначе grep ловит сам себя в этом файле)
-  _old3c='[3c/4] host proxy /'
-  _old3c+=' registry check'
-  if grep -qF "$_old3c" "$CLONE_NEW/update.sh" 2>/dev/null; then
-    echo -e "${red}ERROR:${plain} в клоне старый update.sh (hung 3c step). Нужен ≥7998e60."
-    echo "  git ls-remote $REPO_URL refs/heads/$BRANCH"
-    exit 1
-  fi
-  unset _old3c
+
+  # не блокируем update ложными grep — только WARN
   if ! grep -qF '[3c/4] host proxy' "$CLONE_NEW/update.sh" 2>/dev/null; then
-    echo -e "${yellow}WARN:${plain} update.sh в клоне без шага [3c/4] host proxy"
+    echo -e "${yellow}WARN:${plain} update.sh без [3c/4] host proxy — продолжаем всё равно"
   fi
   chmod 755 "$CLONE_NEW/update.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/install.sh" \
     "$CLONE_NEW/dns.sh" "$CLONE_NEW/docker-host-proxy.sh" 2>/dev/null || true
