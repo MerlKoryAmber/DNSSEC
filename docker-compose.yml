@@ -31,7 +31,16 @@ services:
     volumes:
       - ./config/technitium:/etc/dns
     environment:
-      <<: *proxy-guard
+      # Outbound (block lists) — опциональный корп-прокси. Mesh (Blocky/panel) в NO_PROXY.
+      # Остальные dns-* по-прежнему x-proxy-guard (пусто). Пустой TECHNITIUM_*_PROXY = напрямую.
+      HTTP_PROXY: ${TECHNITIUM_HTTP_PROXY:-}
+      HTTPS_PROXY: ${TECHNITIUM_HTTPS_PROXY:-${TECHNITIUM_HTTP_PROXY:-}}
+      http_proxy: ${TECHNITIUM_HTTP_PROXY:-}
+      https_proxy: ${TECHNITIUM_HTTPS_PROXY:-${TECHNITIUM_HTTP_PROXY:-}}
+      ALL_PROXY: ""
+      all_proxy: ""
+      NO_PROXY: "${TECHNITIUM_NO_PROXY:-localhost,127.0.0.1,::1,technitium,blocky,panel,nginx,dns-lab,dns_net,.dns_net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
+      no_proxy: "${TECHNITIUM_NO_PROXY:-localhost,127.0.0.1,::1,technitium,blocky,panel,nginx,dns-lab,dns_net,.dns_net,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
       DNS_SERVER_DOMAIN: ${DNS_SERVER_DOMAIN:-dns-lab}
       DNS_SERVER_ADMIN_PASSWORD: ""
       DNS_SERVER_PREF_IPV6: "false"

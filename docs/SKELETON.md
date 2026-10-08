@@ -68,7 +68,7 @@
 
 | Контейнер | Роль | Host ports | Важно |
 |-----------|------|------------|--------|
-| `dns-technitium` | лицо DNS, зоны, client DoT/DoH, login | `53`, `853`, `127.0.0.1:5380` | forwarders → IP Blocky; `dnssecValidation=false` при hybrid |
+| `dns-technitium` | лицо DNS, зоны, client DoT/DoH, login | `53`, `853`, `127.0.0.1:5380` | forwarders → IP Blocky; `dnssecValidation=false`; outbound blocklists через `TECHNITIUM_HTTP(S)_PROXY` (+ `NO_PROXY` mesh) |
 | `dns-blocky` | recursive upstreams | **нет** | `config/blocky/config.yml`, `strategy: strict`; IP **`172.18.0.100`** (`DNS_BLOCKY_IP`) — не плывёт после recreate |
 | `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock; после reload blocky — `sync-blocky-forwarder.sh` |
 | `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock |
@@ -85,7 +85,10 @@
   висит на корп.
 - **docker build RUN (pip/apk):** BuildKit ≠ proxy демона. Compose `build.args` +
   `ARG` в Dockerfiles; shell export перед `compose up --build`.
-- **runtime dns-*:** `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY` (mesh).
+- **runtime dns-* (кроме Technitium):** `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY` (mesh).
+- **Technitium outbound (block lists):** `TECHNITIUM_HTTP_PROXY` /
+  `TECHNITIUM_HTTPS_PROXY` в `.env`; mesh в `TECHNITIUM_NO_PROXY`. ACL — на
+  корп-прокси. Пусто = напрямую.
 
 **Лимиты логов (диск):**
 | Источник | Лимит |
@@ -225,8 +228,9 @@
   (+ seed если файла нет).
 - Technitium forwarder = **IP** Blocky, не имя сервиса.
 - **Host HTTP_PROXY в контейнерах** → service mesh ломается. Compose
-  держит пустые `*_PROXY` + `NO_PROXY` (см. `x-proxy-guard`). Не прокидывать
-  proxy из systemd/docker daemon в dns-* без NO_PROXY на `dns_net`.
+  держит пустые `*_PROXY` + `NO_PROXY` (см. `x-proxy-guard`) на panel/blocky/nginx.
+  Technitium — отдельно `TECHNITIUM_*_PROXY` + `NO_PROXY` на mesh; не лить
+  host proxy во все dns-*.
 - **dockerd без proxy drop-in** → `docker pull` мимо корпоративного прокси.
   Чинится `docker-host-proxy.sh` (install/update). Контейнеры при этом
   остаются без proxy.

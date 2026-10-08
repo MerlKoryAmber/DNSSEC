@@ -53,6 +53,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 
 ## Прокси
 
-- Runtime: `x-proxy-guard`
+- Runtime: `x-proxy-guard` (кроме Technitium)
+- Technitium blocklists: `TECHNITIUM_HTTP(S)_PROXY` + `TECHNITIUM_NO_PROXY` в `.env`
 - Pull: `docker-host-proxy.sh`
 - Build: `build.args` + Dockerfile `ARG`
