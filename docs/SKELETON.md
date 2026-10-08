@@ -77,15 +77,16 @@
 
 Сеть: `dns_net`. Blocky **не** публиковать на host :53.
 
-**Прокси:**
-- **dockerd (pull/build base images):** `docker-host-proxy.sh` → systemd drop-in
-  `/etc/systemd/system/docker.service.d/http-proxy.conf` из host
-  `HTTP(S)_PROXY` (env или `/etc/environment`). Install/update вызывают до compose pull.
-- **docker build RUN (pip/apk):** BuildKit не берёт proxy демона. Compose
-  `build.args` + `ARG` в `panel/Dockerfile`, `blocky-watch/Dockerfile`;
-  install/update экспортируют proxy в shell перед `compose up --build`.
-- **контейнеры dns-* runtime:** compose `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY`
-  (localhost, имена сервисов, RFC1918). Host-прокси внутрь не пускать.
+**Прокси (корп-хост — интернет только через proxy):**
+- **Источники:** env → `/etc/environment` → `docker.service.d/*.conf` → `proxy=` в
+  `/etc/dnf/dnf.conf` / `yum.conf`. Install/update пишут dockerd drop-in и
+  **падают**, если Hub недоступен напрямую и proxy не найден (не висеть 0 B).
+- **dockerd (FROM / pull слоёв):** drop-in
+  `/etc/systemd/system/docker.service.d/http-proxy.conf` — без него `python:3.12-slim`
+  висит на корп.
+- **docker build RUN (pip/apk):** BuildKit ≠ proxy демона. Compose `build.args` +
+  `ARG` в Dockerfiles; shell export перед `compose up --build`.
+- **runtime dns-*:** `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY` (mesh).
 
 **Лимиты логов (диск):**
 | Источник | Лимит |

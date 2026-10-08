@@ -207,6 +207,11 @@ sync_install_env
 . "${DNS_DIR}/docker-host-proxy.sh"
 dns_configure_docker_host_proxy
 dns_load_host_proxy
+dns_assert_registry_pull_path || {
+  echo "[dns-update] ERROR: нет пути к registry (задай HTTP(S)_PROXY или dnf proxy=)" >&2
+  exit 1
+}
+export HTTP_PROXY HTTPS_PROXY NO_PROXY
 export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
 
 echo "[4/4] docker compose up --build…"

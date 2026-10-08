@@ -1,36 +1,89 @@
 #!/usr/bin/env bash
-# dockerd HTTP(S)_PROXY for image pull/build. Runtime containers: compose x-proxy-guard.
+# dockerd HTTP(S)_PROXY for image pull/build (FROM layers).
+# Build RUN (pip/apk): compose build.args — BuildKit не берёт proxy демона.
+# Runtime containers: compose x-proxy-guard (пусто).
 # shellcheck shell=bash
 
+dns_proxy_redact() {
+  # http://user:pass@host:port → http://***@host:port
+  local u="${1:-}"
+  if [[ "$u" =~ ^([a-zA-Z][a-zA-Z0-9+.-]*://)[^@/]+@(.+)$ ]]; then
+    printf '%s***@%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  else
+    printf '%s' "$u"
+  fi
+}
+
+dns_proxy_set_if_empty() {
+  # $1=HTTP|HTTPS|NO  $2=value
+  local kind="$1" val="$2"
+  [[ -z "$val" ]] && return 0
+  case "$kind" in
+    HTTP) [[ -z "${HTTP_PROXY:-}${http_proxy:-}" ]] && HTTP_PROXY="$val" ;;
+    HTTPS) [[ -z "${HTTPS_PROXY:-}${https_proxy:-}" ]] && HTTPS_PROXY="$val" ;;
+    NO) [[ -z "${NO_PROXY:-}${no_proxy:-}" ]] && NO_PROXY="$val" ;;
+  esac
+}
+
+dns_proxy_ingest_line() {
+  local line="$1" key val
+  [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && return 0
+  # Environment="HTTP_PROXY=..." (systemd drop-in)
+  if [[ "$line" =~ ^Environment=\"?([A-Za-z0-9_]+)=([^\"]*)\"? ]]; then
+    key="${BASH_REMATCH[1]}"
+    val="${BASH_REMATCH[2]}"
+  else
+    key="${line%%=*}"
+    val="${line#*=}"
+    val="${val%\"}"
+    val="${val#\"}"
+    val="${val%\'}"
+    val="${val#\'}"
+  fi
+  case "$key" in
+    HTTP_PROXY|http_proxy) dns_proxy_set_if_empty HTTP "$val" ;;
+    HTTPS_PROXY|https_proxy) dns_proxy_set_if_empty HTTPS "$val" ;;
+    NO_PROXY|no_proxy) dns_proxy_set_if_empty NO "$val" ;;
+    proxy|Proxy) # dnf/yum: proxy=http://...
+      dns_proxy_set_if_empty HTTP "$val"
+      dns_proxy_set_if_empty HTTPS "$val"
+      ;;
+  esac
+}
+
 dns_load_host_proxy() {
-  # Prefer current env; fill gaps from /etc/environment
-  local line key val
+  local f line
+
+  # 1) current shell env already wins via dns_proxy_set_if_empty checks
+
+  # 2) /etc/environment
   if [[ -f /etc/environment ]]; then
     while IFS= read -r line || [[ -n "$line" ]]; do
-      [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-      key="${line%%=*}"
-      val="${line#*=}"
-      val="${val%\"}"
-      val="${val#\"}"
-      val="${val%\'}"
-      val="${val#\'}"
-      case "$key" in
-        HTTP_PROXY|http_proxy)
-          [[ -z "${HTTP_PROXY:-}${http_proxy:-}" ]] && HTTP_PROXY="$val"
-          ;;
-        HTTPS_PROXY|https_proxy)
-          [[ -z "${HTTPS_PROXY:-}${https_proxy:-}" ]] && HTTPS_PROXY="$val"
-          ;;
-        NO_PROXY|no_proxy)
-          [[ -z "${NO_PROXY:-}${no_proxy:-}" ]] && NO_PROXY="$val"
-          ;;
-      esac
+      dns_proxy_ingest_line "$line"
     done </etc/environment
   fi
+
+  # 3) existing docker drop-in (ручной / чужой)
+  for f in /etc/systemd/system/docker.service.d/*.conf; do
+    [[ -f "$f" ]] || continue
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      dns_proxy_ingest_line "$line"
+    done <"$f"
+  done
+
+  # 4) dnf/yum proxy= (часто единственное место на корп el9)
+  for f in /etc/dnf/dnf.conf /etc/yum.conf; do
+    [[ -f "$f" ]] || continue
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      dns_proxy_ingest_line "$line"
+    done <"$f"
+  done
+
   HTTP_PROXY="${HTTP_PROXY:-${http_proxy:-}}"
   HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-${HTTP_PROXY:-}}}"
   NO_PROXY="${NO_PROXY:-${no_proxy:-localhost,127.0.0.1,::1}}"
   export HTTP_PROXY HTTPS_PROXY NO_PROXY
+  export http_proxy="${HTTP_PROXY}" https_proxy="${HTTPS_PROXY}" no_proxy="${NO_PROXY}"
 }
 
 dns_configure_docker_host_proxy() {
@@ -41,7 +94,8 @@ dns_configure_docker_host_proxy() {
   dns_load_host_proxy
 
   if [[ -z "${HTTP_PROXY}" && -z "${HTTPS_PROXY}" ]]; then
-    echo "[dns-proxy] HTTP(S)_PROXY не задан (env / /etc/environment) — dockerd без proxy drop-in"
+    echo "[dns-proxy] HTTP(S)_PROXY не найден (env / /etc/environment / docker.service.d / dnf.conf)"
+    echo "[dns-proxy] dockerd без drop-in — pull base images только напрямую"
     return 0
   fi
 
@@ -64,20 +118,53 @@ dns_configure_docker_host_proxy() {
 
   if [[ "$new_hash" == "$old_hash" ]]; then
     rm -f "$tmp"
-    echo "[dns-proxy] dockerd proxy drop-in уже актуален: ${drop_file}"
+    echo "[dns-proxy] dockerd drop-in актуален: ${drop_file} ($(dns_proxy_redact "${HTTP_PROXY:-${HTTPS_PROXY}}"))"
     return 0
   fi
 
   mv "$tmp" "$drop_file"
   chmod 644 "$drop_file"
-  echo "[dns-proxy] записан ${drop_file} (HTTP_PROXY=${HTTP_PROXY:-<empty>})"
+  echo "[dns-proxy] записан ${drop_file} ($(dns_proxy_redact "${HTTP_PROXY:-${HTTPS_PROXY}}"))"
 
   if ! command -v systemctl >/dev/null 2>&1; then
     return 0
   fi
   systemctl daemon-reload
   if systemctl is-active --quiet docker 2>/dev/null; then
-    echo "[dns-proxy] restart docker — чтобы pull шёл через proxy (краткий рестарт всех контейнеров)"
+    echo "[dns-proxy] restart docker — pull через proxy (краткий рестарт контейнеров)"
     systemctl restart docker
   fi
+}
+
+# Probe Docker Hub before compose --build. Fail closed on corp (no direct net).
+dns_assert_registry_pull_path() {
+  local code px
+  dns_load_host_proxy
+
+  if [[ -n "${HTTP_PROXY}${HTTPS_PROXY}" ]]; then
+    echo "[dns-proxy] build/pull path: proxy=$(dns_proxy_redact "${HTTPS_PROXY:-$HTTP_PROXY}") NO_PROXY=${NO_PROXY}"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "[dns-proxy] WARN: curl нет — не проверили доступ к registry"
+    return 0
+  fi
+
+  code="$(timeout 8 curl -sS -o /dev/null -w '%{http_code}' https://registry-1.docker.io/v2/ 2>/dev/null || echo 000)"
+  # 200/401 = registry отвечает (anon 401 норма)
+  if [[ "$code" == "200" || "$code" == "401" ]]; then
+    echo "[dns-proxy] registry напрямую OK (HTTP ${code}), proxy не задан — ок для lab/direct"
+    return 0
+  fi
+
+  echo "[dns-proxy] ERROR: Docker Hub недоступен напрямую (HTTP ${code:-000}) и HTTP(S)_PROXY не задан." >&2
+  echo "[dns-proxy] На корп-хосте пропиши proxy и повтори install/update:" >&2
+  echo "  /etc/environment:" >&2
+  echo "    HTTP_PROXY=http://USER:PASS@proxy.example:3128" >&2
+  echo "    HTTPS_PROXY=http://USER:PASS@proxy.example:3128" >&2
+  echo "    NO_PROXY=localhost,127.0.0.1,::1" >&2
+  echo "  либо proxy= в /etc/dnf/dnf.conf — подхватим автоматически." >&2
+  echo "  FROM python/… тянет dockerd (drop-in); pip/apk — compose build.args." >&2
+  return 1
 }
