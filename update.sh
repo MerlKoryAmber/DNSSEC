@@ -150,9 +150,32 @@ if [ "${1:-}" != "--continue" ]; then
   cd /tmp 2>/dev/null || cd / || true
   echo "[1/4] Cloning…"
   rm -rf "$CLONE_NEW"
-  GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$CLONE_NEW"
+  # What does THIS host resolve as tip? (ловит корп-кэш/зеркало)
+  echo -n "ls-remote main: "
+  tip="$(GIT_TERMINAL_PROMPT=0 git ls-remote "$REPO_URL" "refs/heads/${BRANCH}" 2>/dev/null | awk '{print $1; exit}')" || tip=""
+  echo "${tip:-<failed>}"
+  # no-cache headers — на случай HTTP-прокси, кэширующего smart-HTTP
+  GIT_TERMINAL_PROMPT=0 git \
+    -c http.extraHeader="Cache-Control: no-cache" \
+    -c http.extraHeader="Pragma: no-cache" \
+    clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$CLONE_NEW"
   echo "Cloned:"
   git -C "$CLONE_NEW" log -1 --oneline
+  got="$(git -C "$CLONE_NEW" rev-parse HEAD)"
+  if [ -n "$tip" ] && [ "$got" != "$tip" ]; then
+    echo -e "${yellow}WARN:${plain} ls-remote=${tip:0:7} ≠ clone=${got:0:7} — возможен кэш/зеркало proxy"
+  fi
+  # ожидаемый фикс зависания 3c — если старый tip, сразу видно
+  if ! grep -q 'host proxy…' "$CLONE_NEW/update.sh" 2>/dev/null \
+    && ! grep -q 'host proxy' "$CLONE_NEW/update.sh" 2>/dev/null; then
+    echo -e "${yellow}WARN:${plain} update.sh в клоне без шага «host proxy» — похоже старый коммит"
+  fi
+  if grep -q 'registry check' "$CLONE_NEW/update.sh" 2>/dev/null; then
+    echo -e "${red}ERROR:${plain} в клоне старый update.sh (registry check). Нужен ≥7998e60."
+    echo "  git ls-remote $REPO_URL refs/heads/$BRANCH"
+    echo "  на машине разработчика: git push / проверь github.com/.../commits/main"
+    exit 1
+  fi
   chmod 755 "$CLONE_NEW/update.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/install.sh" \
     "$CLONE_NEW/dns.sh" "$CLONE_NEW/docker-host-proxy.sh" 2>/dev/null || true
   exec /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
