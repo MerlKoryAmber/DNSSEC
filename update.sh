@@ -165,16 +165,14 @@ if [ "${1:-}" != "--continue" ]; then
   if [ -n "$tip" ] && [ "$got" != "$tip" ]; then
     echo -e "${yellow}WARN:${plain} ls-remote=${tip:0:7} ≠ clone=${got:0:7} — возможен кэш/зеркало proxy"
   fi
-  # ожидаемый фикс зависания 3c — если старый tip, сразу видно
-  if ! grep -q 'host proxy…' "$CLONE_NEW/update.sh" 2>/dev/null \
-    && ! grep -q 'host proxy' "$CLONE_NEW/update.sh" 2>/dev/null; then
-    echo -e "${yellow}WARN:${plain} update.sh в клоне без шага «host proxy» — похоже старый коммит"
-  fi
-  if grep -q 'registry check' "$CLONE_NEW/update.sh" 2>/dev/null; then
-    echo -e "${red}ERROR:${plain} в клоне старый update.sh (registry check). Нужен ≥7998e60."
+  # старый зависающий шаг был ровно: «host proxy / registry check»
+  if grep -qF 'host proxy / registry check' "$CLONE_NEW/update.sh" 2>/dev/null; then
+    echo -e "${red}ERROR:${plain} в клоне старый update.sh (шаг registry-check). Нужен ≥7998e60."
     echo "  git ls-remote $REPO_URL refs/heads/$BRANCH"
-    echo "  на машине разработчика: git push / проверь github.com/.../commits/main"
     exit 1
+  fi
+  if ! grep -qF '[3c/4] host proxy' "$CLONE_NEW/update.sh" 2>/dev/null; then
+    echo -e "${yellow}WARN:${plain} update.sh в клоне без шага [3c/4] host proxy"
   fi
   chmod 755 "$CLONE_NEW/update.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/install.sh" \
     "$CLONE_NEW/dns.sh" "$CLONE_NEW/docker-host-proxy.sh" 2>/dev/null || true
