@@ -7,18 +7,16 @@
 
 ## Статус
 
-**В РАБОТЕ / РЕАЛИЗОВАНО НО НЕ ПРИНЯТО:** DNS suspicion MVP в коде
-(`dns_suspicion.py` + Query log Risk / Suspicious). Lab `172.29.110.165` —
-DNS ещё не установлен; выкладка panel после install.
+**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО** · `main` @ **`e218ace`**
 
-GitHub `main` до этой фичи: **`4d931c1`** (локальные правки docs+suspicion).
+Lab **`172.29.110.165`**: DNS установлен в `/opt/dns` (2026-10-08).
+Сосед **2fa_*** (9 контейнеров) — жив, не трогали.
+`DNS_BIND_IP=172.29.110.165` (aardvark 10.89:53).
 
-## Открытое
+Smoke: UI :9080 200 · dig @LAN example.com OK · panel health ok ·
+query log + suspicion (long TXT → `high`, filter Suspicious) OK.
 
-- [ ] Первый install на `172.29.110.165` (не трогая 2fa)
-- [ ] Smoke Query log suspicion на живых логах
-- [ ] Коммит/пуш suspicion MVP
-- [ ] Приёмка человеком
+«Принято» — только человек.
 
 ---
 
