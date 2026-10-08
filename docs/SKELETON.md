@@ -60,7 +60,6 @@
 
 **Деплой:** scp точечно в `/opt/dns` → `docker compose -p dns up -d --build …` →
 человек смотрит → **потом** предложить commit → отдельно push.
-После recreate `panel` — часто `docker restart dns-nginx` (502).
 `install.sh` ставит Docker CE рядом с podman — **не** останавливать 2fa.
 
 ---
@@ -73,7 +72,7 @@
 | `dns-blocky` | recursive upstreams | **нет** | `config/blocky/config.yml`, `strategy: strict`; IP **`172.18.0.100`** (`DNS_BLOCKY_IP`) — не плывёт после recreate |
 | `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock; после reload blocky — `sync-blocky-forwarder.sh` |
 | `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock |
-| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:443 (HTTPS DoH); TLS `config/nginx/ssl` |
+| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:443; `resolver 127.0.0.11` + variable `proxy_pass` (без stale IP/502); TLS `config/nginx/ssl` |
 
 Сеть: `dns_net`. Blocky **не** публиковать на host :53.
 
@@ -220,7 +219,7 @@
 
 ## 7. Грабли (лаборатория)
 
-- После recreate `panel` → 502 на `/api` → `docker restart dns-nginx`.
+- Stale upstream IP после recreate panel: nginx должен иметь `resolver` + variable `proxy_pass` (не `upstream { server panel:8000; }`).
 - **update keep-data** раньше затирал `config/blocky/config.yml` дефолтом
   из GitHub → сброс Forwarders. С `4d931c1`: exclude `config/blocky/`
   (+ seed если файла нет).

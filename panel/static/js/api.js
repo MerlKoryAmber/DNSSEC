@@ -20,6 +20,11 @@ async function api(path, options = {}) {
     if (msg && typeof msg === "object") {
       msg = msg.message || msg.code || JSON.stringify(msg);
     }
+    if (typeof msg === "string" && (msg.includes("<html") || msg.includes("<!DOCTYPE"))) {
+      msg = res.status === 502
+        ? "Panel unavailable (502). Retry in a few seconds."
+        : `HTTP ${res.status}`;
+    }
     const err = new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
     err.status = res.status;
     err.data = data;
