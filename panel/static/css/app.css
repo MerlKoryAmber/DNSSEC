@@ -663,6 +663,58 @@ table.data tr.is-disabled td {
   min-width: 0;
 }
 
+/* Полоса действий над таблицей — отдельна от toolbar с вкладками */
+.blk-page {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow: hidden;
+}
+.work-tools {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0;
+}
+.work-tools .filter-input {
+  flex: 1 1 clamp(10rem, 20vw, 20rem);
+  width: auto;
+  min-width: 0;
+  max-width: min(20rem, 100%);
+  height: 2.2em;
+  padding: 0 0.7em;
+  border: 1px solid var(--ir-border);
+  border-radius: var(--radius-sm);
+  background: var(--ir-surface);
+  color: var(--ir-text);
+  font: inherit;
+  font-size: 0.88rem;
+}
+.work-tools .filter-input:focus {
+  outline: none;
+  border-color: var(--ir-accent);
+}
+.work-tools .input-sm {
+  width: 4.5rem;
+  height: 2.2em;
+  padding: 0 0.5em;
+  border: 1px solid var(--ir-border);
+  border-radius: var(--radius-sm);
+  background: var(--ir-surface);
+  color: var(--ir-text);
+  font: inherit;
+  font-size: 0.88rem;
+}
+.blk-page > .table-wrap {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 .subnav {
   display: flex;
   flex-wrap: wrap;

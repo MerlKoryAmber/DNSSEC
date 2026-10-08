@@ -2222,15 +2222,17 @@
 
   async function viewBlocking(initialTab) {
     const tab = ["lists", "allowed", "blocked"].includes(initialTab) ? initialTab : "lists";
+    // Toolbar = только вкладки. Фильтры/кнопки — отдельная полоса над таблицей (не в одной линии с tabs).
     shell("Blocking", `
       <div class="subnav">
         <button type="button" class="subnav-item ${tab === "lists" ? "active" : ""}" data-btab="lists">Lists</button>
         <button type="button" class="subnav-item ${tab === "allowed" ? "active" : ""}" data-btab="allowed">Allowed</button>
         <button type="button" class="subnav-item ${tab === "blocked" ? "active" : ""}" data-btab="blocked">Blocked</button>
       </div>
-      <div class="toolbar-spacer"></div>
-      <span id="blkToolbarExtra"></span>
-    `, `<div id="blkWork" class="table-wrap"><div id="blkInner" class="table-scroll"><div class="empty">Loading…</div></div></div>`, "blocking");
+    `, `<div id="blkWork" class="blk-page">
+      <div class="work-tools" id="blkTools"></div>
+      <div class="table-wrap"><div id="blkInner" class="table-scroll"><div class="empty">Loading…</div></div></div>
+    </div>`, "blocking");
 
     root.querySelectorAll("[data-btab]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -2240,7 +2242,7 @@
 
     const work = document.getElementById("blkWork");
     const inner = document.getElementById("blkInner");
-    const extra = document.getElementById("blkToolbarExtra");
+    const tools = document.getElementById("blkTools");
 
     function parseListUrl(raw) {
       let s = String(raw || "").trim();
@@ -2273,7 +2275,7 @@
       let intervalHours = 24;
       let nextUpdatedOn = null;
 
-      extra.innerHTML = `
+      tools.innerHTML = `
         <input type="search" class="filter-input" id="blkFilter" placeholder="Filter by URL…" />
         <label class="toolbar-hint" for="blkInterval">Interval (h)</label>
         <input type="number" id="blkInterval" class="input-sm" min="0" max="168" value="24" />
@@ -2474,16 +2476,15 @@
 
     const isAllowed = tab === "allowed";
     const title = isAllowed ? "Allowed domains" : "Blocked domains";
-    extra.innerHTML = `
+    tools.innerHTML = `
       <input type="search" class="filter-input" id="blkFilter" placeholder="Filter…" />
       <div class="toolbar-spacer"></div>
       <button type="button" class="btn btn-secondary" id="btnBlkRefresh">Refresh</button>
       <button type="button" class="btn btn-danger" id="btnBlkFlush">Flush all</button>
       <button type="button" class="btn" id="btnBlkAdd">Add domain</button>
     `;
-    work.className = "table-wrap";
-    work.innerHTML = `<div class="table-scroll" id="blkInner"></div>`;
     const box = document.getElementById("blkInner");
+    box.innerHTML = `<div class="empty">Loading…</div>`;
 
     let items = [];
     async function loadList() {
