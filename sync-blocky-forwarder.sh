@@ -15,7 +15,14 @@ TECH_URL="${TECH_URL%/}"
 log() { echo "[dns-fwd] $*"; }
 
 load_pass() {
-  local line
+  local line secret
+  # 1) файл панели (пишется при login / смене пароля в UI — не .env руками)
+  secret="${DNS_DIR}/config/panel/technitium_admin.pass"
+  if [[ -f "$secret" ]]; then
+    head -n1 "$secret" | tr -d '\r\n'
+    return 0
+  fi
+  # 2) env override (редко, для автоматизации)
   if [[ -n "${TECHNITIUM_ADMIN_PASSWORD:-}" ]]; then
     printf '%s' "$TECHNITIUM_ADMIN_PASSWORD"
     return 0
@@ -27,6 +34,7 @@ load_pass() {
       return 0
     fi
   fi
+  # 3) дефолт после install
   printf '%s' "admin"
 }
 
@@ -58,7 +66,7 @@ if [[ -z "${token:-}" ]]; then
 fi
 
 if [[ -z "${token:-}" ]]; then
-  log "WARN: cannot login Technitium — set TECHNITIUM_ADMIN_PASSWORD in ${ENV_FILE}"
+  log "WARN: cannot login Technitium — зайди в панель как admin (пароль сохранится сам)"
   log "WARN: Blocky IP сейчас ${target} (ожидаем ${FIXED_IP}); forwarder не обновлён"
   exit 0
 fi

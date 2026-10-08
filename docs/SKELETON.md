@@ -136,6 +136,7 @@
 | `config.py` | Settings: TECHNITIUM_*, BLOCKY_* |
 | `auth.py` | `/api/auth/login|logout|me`, session cookie `SameSite=strict`; login rate-limit (fail/IP) |
 | `session_secret.py` | если secret=default → файл `config/panel/session_secret` |
+| `tech_secret.py` | пароль admin → `config/panel/technitium_admin.pass` (login / смена в UI; для sync forwarder) |
 | `signals.py` | panel → `config/panel/signals/` (`nginx.hup` / `nginx.recreate`) для stack-watch |
 | `routes.py` | zones, records, settings, **forwarders** |
 | `technitium.py` | HTTP-клиент Technitium API |
