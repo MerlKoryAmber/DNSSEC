@@ -1,4 +1,4 @@
-# Handoff CURRENT — 2026-10-08 ~12:05 МСК
+# Handoff CURRENT — 2026-10-08 ~13:15 МСК
 
 > **Новому агенту:** `docs/SKELETON.md` → этот файл → `docs/CODEMAP.md` →
 > ADR/UI по задаче. Метод: `CLAUDE.md` (выше дефолта Cursor). Caveman (§13).
@@ -7,14 +7,14 @@
 
 ## Статус
 
-**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО** · `main` @ **`e218ace`**
+**РЕАЛИЗОВАНО НО НЕ ПРИНЯТО** · lab выкладка suspicion/auto-block (локально, без commit)
 
-Lab **`172.29.110.165`**: DNS установлен в `/opt/dns` (2026-10-08).
-Сосед **2fa_*** (9 контейнеров) — жив, не трогали.
-`DNS_BIND_IP=172.29.110.165` (aardvark 10.89:53).
+Lab **`172.29.110.165`**: `/opt/dns`. Сосед **2fa_*** — не трогали.
+`DNS_BIND_IP=172.29.110.165`.
 
-Smoke: UI :9080 200 · dig @LAN example.com OK · panel health ok ·
-query log + suspicion (long TXT → `high`, filter Suspicious) OK.
+Smoke: UI :9080 200 · Settings → **Suspicion** · `GET/PUT /api/settings/suspicion`
+· prefs в `config/panel/ui.yml` → `suspicion:` · score high+entropy OK ·
+autoBlock default **off** · dig noise `*.dga-lab.example` в лог.
 
 «Принято» — только человек.
 

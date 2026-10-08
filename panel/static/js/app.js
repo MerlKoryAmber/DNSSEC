@@ -1727,11 +1727,12 @@
   }
 
   async function viewSettings(initialTab) {
-    const tab = ["general", "blocking", "panel-tls"].includes(initialTab) ? initialTab : "general";
+    const tab = ["general", "blocking", "suspicion", "panel-tls"].includes(initialTab) ? initialTab : "general";
     shell("Settings", `
       <div class="subnav">
         <button type="button" class="subnav-item ${tab === "general" ? "active" : ""}" data-stab="general">General</button>
         <button type="button" class="subnav-item ${tab === "blocking" ? "active" : ""}" data-stab="blocking">Blocking</button>
+        <button type="button" class="subnav-item ${tab === "suspicion" ? "active" : ""}" data-stab="suspicion">Suspicion</button>
         <button type="button" class="subnav-item ${tab === "panel-tls" ? "active" : ""}" data-stab="panel-tls">Panel TLS</button>
       </div>
       <div class="toolbar-spacer"></div>
@@ -1948,6 +1949,156 @@
             const reloadOk = r.reload && r.reload.reloaded;
             toast(reloadOk ? "Panel TLS uploaded · nginx reloaded" : `Panel TLS uploaded · ${r.reload?.reason || "reload pending"}`);
             await viewSettings("panel-tls");
+          } catch (ex) {
+            toast(ex.message, "error");
+            btn.disabled = false;
+          }
+        });
+      } catch (ex) {
+        inner.innerHTML = `<div class="empty"><strong>Failed to load</strong><span>${escapeHtml(ex.message)}</span></div>`;
+      }
+      return;
+    }
+
+    if (tab === "suspicion") {
+      extra.innerHTML = `<button type="button" class="btn" id="btnSaveSus">Save</button>`;
+      try {
+        const data = await DnsApi.suspicionPrefs();
+        const p = data.prefs || {};
+        const d = data.defaults || {};
+        const num = (key, fallback) => {
+          const v = p[key];
+          if (v === undefined || v === null || v === "") return fallback !== undefined ? fallback : (d[key] ?? "");
+          return v;
+        };
+        const lvl = p.minLevel === "suspicious" ? "suspicious" : "high";
+        inner.innerHTML = `
+          <div class="form-card">
+            <p class="section-title">Auto-block</p>
+            <div class="proto-list">
+              <div class="proto-row">
+                <div class="proto-main">
+                  <label class="inline"><input type="checkbox" id="susAuto" ${p.autoBlock ? "checked" : ""} /> Enable auto-block</label>
+                  <div class="hint">When Query Log is opened, domains meeting the thresholds below are added to Blocked. Default off.</div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <label>Minimum level</label>
+                  <div class="blk-radios">
+                    <label class="inline"><input type="radio" name="susMinLevel" value="high" ${lvl === "high" ? "checked" : ""} /> High only</label>
+                    <label class="inline"><input type="radio" name="susMinLevel" value="suspicious" ${lvl === "suspicious" ? "checked" : ""} /> Suspicious + high</label>
+                  </div>
+                  <div class="hint">Default: high. Also requires min score.</div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label for="susMinScore">Min score</label>
+                    <input type="number" id="susMinScore" min="0" max="50" value="${num("minScore", 6)}" />
+                    <div class="hint">Default ${d.minScore ?? 6}. Score from entropy / label length / qtype / burst.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-card" style="margin-top:var(--space-md)">
+            <p class="section-title">Scoring thresholds</p>
+            <div class="proto-list">
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label>Label length (soft / hard)</label>
+                    <div class="blk-inline">
+                      <input type="number" id="susLabSoft" class="input-sm" min="8" max="200" value="${num("labelLenSoft", 25)}" title="soft" />
+                      <span>/</span>
+                      <input type="number" id="susLabHard" class="input-sm" min="10" max="255" value="${num("labelLenHard", 40)}" title="hard" />
+                    </div>
+                    <div class="hint">Default ${d.labelLenSoft ?? 25} / ${d.labelLenHard ?? 40}. Long labels → +2 / +3.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label>Entropy (soft / hard) · min label len</label>
+                    <div class="blk-inline">
+                      <input type="number" id="susEntSoft" class="input-sm" min="1" max="6" step="0.1" value="${num("entropySoft", 3.3)}" />
+                      <span>/</span>
+                      <input type="number" id="susEntHard" class="input-sm" min="1" max="8" step="0.1" value="${num("entropyHard", 4.0)}" />
+                      <span>·</span>
+                      <input type="number" id="susEntMin" class="input-sm" min="4" max="64" value="${num("entropyMinLen", 12)}" title="min len" />
+                    </div>
+                    <div class="hint">Shannon on alnum core. Default ${d.entropySoft ?? 3.3} / ${d.entropyHard ?? 4.0} · ${d.entropyMinLen ?? 12}.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label for="susDepth">Depth soft (≥ labels)</label>
+                    <input type="number" id="susDepth" min="2" max="20" value="${num("depthSoft", 5)}" />
+                    <div class="hint">Default ${d.depthSoft ?? 5}. Deep names → +1.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label>Level cutoffs (suspicious / high score)</label>
+                    <div class="blk-inline">
+                      <input type="number" id="susScoreSus" class="input-sm" min="1" max="30" value="${num("scoreSuspicious", 3)}" />
+                      <span>/</span>
+                      <input type="number" id="susScoreHigh" class="input-sm" min="1" max="40" value="${num("scoreHigh", 6)}" />
+                    </div>
+                    <div class="hint">Default ${d.scoreSuspicious ?? 3} / ${d.scoreHigh ?? 6}.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label>Client burst (window sec / unique names / score)</label>
+                    <div class="blk-inline">
+                      <input type="number" id="susBurstWin" class="input-sm" min="5" max="600" value="${num("burstWindowSec", 60)}" />
+                      <span>/</span>
+                      <input type="number" id="susBurstN" class="input-sm" min="3" max="100" value="${num("burstUnique", 8)}" />
+                      <span>/</span>
+                      <input type="number" id="susBurstScore" class="input-sm" min="0" max="20" value="${num("burstScore", 3)}" />
+                    </div>
+                    <div class="hint">In-memory per panel process. Default ${d.burstWindowSec ?? 60}s / ${d.burstUnique ?? 8} / +${d.burstScore ?? 3}.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="hint" style="margin-top:var(--space-md)">Heuristics only (entropy / tunnels) — not commercial TI. See Query Log → Risk column. Prefs in <code>config/panel/ui.yml</code> → <code>suspicion:</code>.</p>`;
+
+        document.getElementById("btnSaveSus").addEventListener("click", async () => {
+          const btn = document.getElementById("btnSaveSus");
+          const lvlEl = document.querySelector("input[name=susMinLevel]:checked");
+          btn.disabled = true;
+          try {
+            await DnsApi.saveSuspicionPrefs({
+              autoBlock: document.getElementById("susAuto").checked,
+              minLevel: lvlEl ? lvlEl.value : "high",
+              minScore: Number(document.getElementById("susMinScore").value),
+              labelLenSoft: Number(document.getElementById("susLabSoft").value),
+              labelLenHard: Number(document.getElementById("susLabHard").value),
+              entropySoft: Number(document.getElementById("susEntSoft").value),
+              entropyHard: Number(document.getElementById("susEntHard").value),
+              entropyMinLen: Number(document.getElementById("susEntMin").value),
+              depthSoft: Number(document.getElementById("susDepth").value),
+              scoreSuspicious: Number(document.getElementById("susScoreSus").value),
+              scoreHigh: Number(document.getElementById("susScoreHigh").value),
+              burstWindowSec: Number(document.getElementById("susBurstWin").value),
+              burstUnique: Number(document.getElementById("susBurstN").value),
+              burstScore: Number(document.getElementById("susBurstScore").value),
+            });
+            toast("Suspicion settings saved");
+            await viewSettings("suspicion");
           } catch (ex) {
             toast(ex.message, "error");
             btn.disabled = false;

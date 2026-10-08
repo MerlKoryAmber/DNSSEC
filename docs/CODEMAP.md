@@ -30,6 +30,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 | `/api/zones*`, `/api/settings*` | Technitium |
 | `/api/settings/panel-tls` | nginx PEM (порты — CLI) |
 | `/api/settings/ui` | timezone, log budget |
+| `/api/settings/suspicion` | auto-block + heuristics thresholds (`ui.yml` → `suspicion:`) |
 
 ## update keep-data — preserve
 

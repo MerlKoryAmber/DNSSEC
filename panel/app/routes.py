@@ -298,11 +298,54 @@ class UiPrefsBody(BaseModel):
     maxLogDays: int | None = None
 
 
+class SuspicionPrefsBody(BaseModel):
+    autoBlock: bool | None = None
+    minLevel: str | None = None  # suspicious | high
+    minScore: int | None = Field(default=None, ge=0, le=50)
+    labelLenSoft: int | None = Field(default=None, ge=8, le=200)
+    labelLenHard: int | None = Field(default=None, ge=10, le=255)
+    entropySoft: float | None = Field(default=None, ge=1.0, le=6.0)
+    entropyHard: float | None = Field(default=None, ge=1.0, le=8.0)
+    entropyMinLen: int | None = Field(default=None, ge=4, le=64)
+    depthSoft: int | None = Field(default=None, ge=2, le=20)
+    scoreSuspicious: int | None = Field(default=None, ge=1, le=30)
+    scoreHigh: int | None = Field(default=None, ge=1, le=40)
+    burstWindowSec: int | None = Field(default=None, ge=5, le=600)
+    burstUnique: int | None = Field(default=None, ge=3, le=100)
+    burstScore: int | None = Field(default=None, ge=0, le=20)
+
+
 @router.get("/settings/ui")
 async def get_ui_prefs(_client: TechnitiumClient = Depends(get_client)):
     from . import ui_prefs
 
     return {"status": "ok", **ui_prefs.status()}
+
+
+@router.get("/settings/suspicion")
+async def get_suspicion_prefs(_client: TechnitiumClient = Depends(get_client)):
+    from . import dns_suspicion
+
+    return dns_suspicion.prefs_public()
+
+
+@router.put("/settings/suspicion")
+async def put_suspicion_prefs(
+    body: SuspicionPrefsBody,
+    _client: TechnitiumClient = Depends(get_client),
+):
+    from . import dns_suspicion
+
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not patch:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    if "minLevel" in patch:
+        lvl = str(patch["minLevel"]).lower()
+        if lvl not in ("suspicious", "high"):
+            raise HTTPException(status_code=400, detail="minLevel must be suspicious|high")
+        patch["minLevel"] = lvl
+    prefs = dns_suspicion.write_prefs(patch)
+    return {"status": "ok", "prefs": prefs, "defaults": dict(dns_suspicion.DEFAULTS)}
 
 
 @router.put("/settings/ui")
@@ -899,10 +942,15 @@ async def get_blocking_log(
         raise _map_error(exc) from exc
 
     resp = raw.get("response") or raw
+    sus_cfg = dns_suspicion.read_prefs()
     entries = dns_suspicion.enrich_entries(
         list(resp.get("entries") or []),
         suspicious_only=suspiciousOnly,
+        cfg=sus_cfg,
     )
+    auto_blocked: list[str] = []
+    if sus_cfg.get("autoBlock"):
+        auto_blocked = await dns_suspicion.apply_auto_block(client, entries, sus_cfg)
     if suspiciousOnly:
         entries = entries[:want]
     from . import ui_prefs
@@ -916,9 +964,16 @@ async def get_blocking_log(
         "totalEntries": resp.get("totalEntries") or 0,
         "entries": entries,
         "suspiciousOnly": suspiciousOnly,
+        "suspicionPrefs": {
+            "autoBlock": bool(sus_cfg.get("autoBlock")),
+            "minLevel": sus_cfg.get("minLevel"),
+            "minScore": sus_cfg.get("minScore"),
+        },
+        "autoBlocked": auto_blocked,
         "suspicionNote": (
             "Heuristics on fetched rows (entropy / label length / rare qtype / client burst). "
-            "Not commercial TI. «Log allowed» needed to see non-blocked tunnel noise."
+            "Not commercial TI. «Log allowed» needed to see non-blocked tunnel noise. "
+            "Auto-block: Settings → Suspicion."
         ),
     }
 

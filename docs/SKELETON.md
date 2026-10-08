@@ -140,7 +140,7 @@
 | `blocky_config.py` | encode/decode/read/write Blocky YAML |
 | `blocklist_presets.py` | curated blocklist URLs (seed выключенными) |
 | `query_logs.py` | ensure Query Logs (Sqlite) + resolve logger |
-| `dns_suspicion.py` | эвристики tunnel/DGA-ish на строках query log (entropy/len/burst) |
+| `dns_suspicion.py` | эвристики tunnel/DGA-ish + prefs auto-block (`ui.yml` → `suspicion:`) |
 | `host_stats.py` | CPU/RAM (/proc) + probes Technitium/Blocky/Nginx |
 | `panel_tls.py` | Panel UI TLS (nginx PEM); listen ports пишет CLI `dns ports` |
 | `ui_prefs.py` | UI prefs in `ui.yml` (timezone display, default Europe/Moscow) |
@@ -165,7 +165,7 @@
 | Client protocol | `routes.py` settings | `app.js` `#/client-protocol` | Technitium |
 | Blocking | `routes.py` `/api/blocking*` + `blocklist_store.py` | `app.js` `#/blocking` | Lists / Allowed / Blocked |
 | Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` + `dns_suspicion.py` | `app.js` `#/query-log` | Technitium Query Logs + risk heuristics |
-| Settings | `routes.py` + `panel_tls.py` | `#/settings` Panel TLS PEM; порты — CLI | Blocking · Panel TLS |
+| Settings | `routes.py` + `panel_tls.py` + `dns_suspicion.py` | `#/settings` · General · Blocking · Suspicion · Panel TLS; порты — CLI | Suspicion: auto-block + пороги |
 | Panel listen ports | `dns.sh` `ports` (+ `panel_tls.write_listen_settings`) | — | `.env` / `ui.yml` / `http.conf` |
 | Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` | `app.js` `#/dashboard` | Technitium stats + CPU/RAM + services |
 

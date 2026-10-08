@@ -72,6 +72,8 @@ window.DnsApi = {
   },
   uiPrefs: () => api("/api/settings/ui"),
   saveUiPrefs: (body) => api("/api/settings/ui", { method: "PUT", body }),
+  suspicionPrefs: () => api("/api/settings/suspicion"),
+  saveSuspicionPrefs: (body) => api("/api/settings/suspicion", { method: "PUT", body }),
   blocking: () => api("/api/blocking"),
   saveBlocking: (body) => api("/api/blocking", { method: "PUT", body }),
   forceUpdateBlockLists: () => api("/api/blocking/force-update-lists", { method: "POST", body: {} }),
