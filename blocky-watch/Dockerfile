@@ -8,4 +8,4 @@ ARG http_proxy
 ARG https_proxy
 ARG no_proxy
 
-RUN apk add --no-cache inotify-tools
+RUN apk add --no-cache inotify-tools curl bash

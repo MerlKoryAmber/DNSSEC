@@ -70,8 +70,8 @@
 | Контейнер | Роль | Host ports | Важно |
 |-----------|------|------------|--------|
 | `dns-technitium` | лицо DNS, зоны, client DoT/DoH, login | `53`, `853`, `127.0.0.1:5380` | forwarders → IP Blocky; `dnssecValidation=false` при hybrid |
-| `dns-blocky` | recursive upstreams | **нет** | `config/blocky/config.yml`, `strategy: strict` |
-| `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock для panel-ops |
+| `dns-blocky` | recursive upstreams | **нет** | `config/blocky/config.yml`, `strategy: strict`; IP **`172.18.0.100`** (`DNS_BLOCKY_IP`) — не плывёт после recreate |
+| `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock; после reload blocky — `sync-blocky-forwarder.sh` |
 | `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock |
 | `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:443 (HTTPS DoH); TLS `config/nginx/ssl` |
 
@@ -120,6 +120,7 @@
 | `uninstall.sh` | compose down + remove CLI (+ optional wipe `/opt/dns`) |
 | `dns.sh` | interactive CLI menu → `/usr/bin/dns` (в т.ч. `ports`) |
 | `docker-host-proxy.sh` | systemd drop-in HTTP(S)_PROXY для dockerd pull |
+| `sync-blocky-forwarder.sh` | Technitium forwarders → IP Blocky (update / watch / `dns` 10) |
 | `blocky-watch/Dockerfile` | docker:cli + inotify (без runtime `apk`) |
 | `docs/patterns/cli-menu-linux.md` | паттерн меню (из squid-panel) |
 | `config/blocky/config.yml` | upstreams Blocky (пишет panel); **update keep исключает** — иначе сброс forwarders |

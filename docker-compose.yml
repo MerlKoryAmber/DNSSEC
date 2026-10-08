@@ -47,13 +47,15 @@ services:
     restart: unless-stopped
     logging: *dns-logging
     # только dns_net — 53 наружу не публикуем (Technitium спереди)
+    # Фиксированный IP: Technitium forwarder не ломается после recreate
     volumes:
       - ./config/blocky:/app/config:ro
     environment:
       <<: *proxy-guard
     command: ["--config", "/app/config/config.yml"]
     networks:
-      - dns_net
+      dns_net:
+        ipv4_address: ${DNS_BLOCKY_IP:-172.18.0.100}
 
   # Watch: Blocky YAML + panel signals (nginx HUP / recreate). Sole docker.sock holder for panel ops.
   blocky-watch:
@@ -79,12 +81,23 @@ services:
     environment:
       <<: *proxy-guard
       DNS_HOST_PROJECT: ${DNS_HOST_PROJECT:-/opt/dns}
+      DNS_INSTALL_DIR: ${DNS_HOST_PROJECT:-/opt/dns}
+      TECHNITIUM_URL: http://technitium:5380
+      DNS_BLOCKY_IP: ${DNS_BLOCKY_IP:-172.18.0.100}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         mkdir -p /signals
         PROJECT="$${DNS_HOST_PROJECT:-/opt/dns}"
+        sync_fwd() {
+          if [ -x "$$PROJECT/sync-blocky-forwarder.sh" ]; then
+            sh "$$PROJECT/sync-blocky-forwarder.sh" || true
+          fi
+        }
         echo "watching blocky config + panel signals (project=$$PROJECT)"
+        # стартовый sync (после recreate IP мог смениться до фикса ipv4_address)
+        sleep 2
+        sync_fwd
         while true; do
           inotifywait -e modify,close_write,move,create,attrib \
             /config/config.yml /signals 2>/dev/null || sleep 2
@@ -102,6 +115,7 @@ services:
             echo "reload blocky"
             docker restart dns-blocky || true
             sleep 2
+            sync_fwd
           fi
         done
     depends_on:

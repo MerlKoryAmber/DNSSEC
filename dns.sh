@@ -241,45 +241,19 @@ cmd_backup() {
 }
 
 cmd_fix_forwarder() {
-  local ip token
   if ! docker inspect dns-blocky >/dev/null 2>&1; then
     echo -e "${red}ERROR:${plain} dns-blocky not running"
     return 1
   fi
-  ip=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dns-blocky)
-  if [ -z "$ip" ]; then
-    echo -e "${red}ERROR:${plain} cannot resolve Blocky IP"
+  local sync="${DNS_DIR}/sync-blocky-forwarder.sh"
+  if [ ! -f "$sync" ]; then
+    echo -e "${red}ERROR:${plain} missing $sync"
     return 1
   fi
-  echo "Blocky IP: $ip"
-  token="$(curl -sf -X POST "http://127.0.0.1:5380/api/user/login" \
-    --data-urlencode "user=admin" \
-    --data-urlencode "pass=admin" \
-    | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" || true
-  if [ -z "${token:-}" ]; then
-    echo -e "${yellow}WARN:${plain} login admin/admin failed — enter password"
-    local pass
-    read -r -s -p "Technitium admin password: " pass
-    echo ""
-    token="$(curl -sf -X POST "http://127.0.0.1:5380/api/user/login" \
-      --data-urlencode "user=admin" \
-      --data-urlencode "pass=${pass}" \
-      | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" || true
-  fi
-  if [ -z "${token:-}" ]; then
-    echo -e "${red}ERROR:${plain} cannot login to Technitium"
-    return 1
-  fi
-  curl -sf -G "http://127.0.0.1:5380/api/settings/set" \
-    --data-urlencode "token=${token}" \
-    --data-urlencode "forwarders=${ip}" \
-    --data-urlencode "forwarderProtocol=Udp" \
-    --data-urlencode "dnssecValidation=false" >/dev/null
-  curl -sf -G "http://127.0.0.1:5380/api/cache/flush" \
-    --data-urlencode "token=${token}" >/dev/null || true
-  echo -e "${green}OK:${plain} Technitium forwarders → ${ip}"
+  bash "$sync"
   if command -v dig >/dev/null 2>&1; then
-    dig @127.0.0.1 example.com A +time=2 +tries=1 +noall +answer || true
+    dig @"${DNS_BIND_IP:-127.0.0.1}" example.com A +time=2 +tries=1 +noall +answer 2>/dev/null \
+      || dig @127.0.0.1 example.com A +time=2 +tries=1 +noall +answer || true
   fi
 }
 

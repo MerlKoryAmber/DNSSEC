@@ -109,22 +109,11 @@ EOF
 }
 
 fix_blocky_forwarder() {
-  local ip token
-  ip=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dns-blocky 2>/dev/null || true)
-  [ -z "$ip" ] && return 0
-  token="$(curl -sf -X POST "http://127.0.0.1:5380/api/user/login" \
-    --data-urlencode "user=admin" \
-    --data-urlencode "pass=admin" \
-    | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" || true
-  [ -z "${token:-}" ] && return 0
-  curl -sf -G "http://127.0.0.1:5380/api/settings/set" \
-    --data-urlencode "token=${token}" \
-    --data-urlencode "forwarders=${ip}" \
-    --data-urlencode "forwarderProtocol=Udp" \
-    --data-urlencode "dnssecValidation=false" >/dev/null || true
-  curl -sf -G "http://127.0.0.1:5380/api/cache/flush" \
-    --data-urlencode "token=${token}" >/dev/null 2>&1 || true
-  echo "Forwarder synced to Blocky ${ip}"
+  if [ -x "${DNS_DIR}/sync-blocky-forwarder.sh" ]; then
+    bash "${DNS_DIR}/sync-blocky-forwarder.sh" || true
+  elif [ -f "${DNS_DIR}/sync-blocky-forwarder.sh" ]; then
+    bash "${DNS_DIR}/sync-blocky-forwarder.sh" || true
+  fi
 }
 
 # --- phase 1: clone then re-exec from new tree ---
@@ -194,7 +183,8 @@ if [ "${1:-}" != "--continue" ]; then
     echo -e "${yellow}WARN:${plain} update.sh без [3c/4] host proxy — продолжаем всё равно"
   fi
   chmod 755 "$CLONE_NEW/update.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/install.sh" \
-    "$CLONE_NEW/dns.sh" "$CLONE_NEW/docker-host-proxy.sh" 2>/dev/null || true
+    "$CLONE_NEW/dns.sh" "$CLONE_NEW/docker-host-proxy.sh" \
+    "$CLONE_NEW/sync-blocky-forwarder.sh" 2>/dev/null || true
   exec /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
 fi
 
@@ -230,7 +220,8 @@ fi
 # Ensure scripts executable
 chmod 755 \
   "${DNS_DIR}/dns.sh" "${DNS_DIR}/update.sh" "${DNS_DIR}/uninstall.sh" \
-  "${DNS_DIR}/install.sh" "${DNS_DIR}/docker-host-proxy.sh" 2>/dev/null || true
+  "${DNS_DIR}/install.sh" "${DNS_DIR}/docker-host-proxy.sh" \
+  "${DNS_DIR}/sync-blocky-forwarder.sh" 2>/dev/null || true
 
 if [ "$wipe_data" = "1" ]; then
   echo "[3/4] Wiping Technitium data…"

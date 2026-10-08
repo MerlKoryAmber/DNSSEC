@@ -99,7 +99,8 @@ ensure_scripts_exec() {
   local dir="$1"
   chmod 755 \
     "$dir/install.sh" "$dir/update.sh" "$dir/uninstall.sh" \
-    "$dir/dns.sh" "$dir/docker-host-proxy.sh" 2>/dev/null || true
+    "$dir/dns.sh" "$dir/docker-host-proxy.sh" \
+    "$dir/sync-blocky-forwarder.sh" 2>/dev/null || true
 }
 
 install_docker() {
