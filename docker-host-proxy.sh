@@ -5,7 +5,6 @@
 # shellcheck shell=bash
 
 dns_proxy_redact() {
-  # http://user:pass@host:port → http://***@host:port
   local u="${1:-}"
   if [[ "$u" =~ ^([[:alnum:]+.-]+://)[^@/]+@(.+)$ ]]; then
     printf '%s***@%s' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
@@ -22,18 +21,16 @@ dns_proxy_set_if_empty() {
     HTTPS) [[ -z "${HTTPS_PROXY:-}${https_proxy:-}" ]] && HTTPS_PROXY="$val" ;;
     NO) [[ -z "${NO_PROXY:-}${no_proxy:-}" ]] && NO_PROXY="$val" ;;
   esac
+  return 0
 }
 
 dns_proxy_ingest_line() {
   local line="$1" key val
-  # strip CR (Windows-edited files), comments, export, spaces
   line="${line%$'\r'}"
   [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && return 0
-  line="${line#"${line%%[![:space:]]*}"}"  # ltrim
-  # skip non-assignments
+  line="${line#"${line%%[![:space:]]*}"}"
   [[ "$line" == *=* ]] || return 0
 
-  # systemd: Environment="HTTP_PROXY=http://..."
   if [[ "$line" =~ ^Environment=\"([A-Za-z0-9_]+)=([^\"]*)\" ]]; then
     key="${BASH_REMATCH[1]}"
     val="${BASH_REMATCH[2]}"
@@ -41,14 +38,13 @@ dns_proxy_ingest_line() {
     key="${BASH_REMATCH[1]}"
     val="${BASH_REMATCH[2]}"
   else
-    # export HTTP_PROXY=... | HTTP_PROXY = ...
     line="${line#export }"
     line="${line#export	}"
     key="${line%%=*}"
     val="${line#*=}"
   fi
-  key="${key%"${key##*[![:space:]]}"}"  # rtrim key
-  key="${key#"${key%%[![:space:]]*}"}"  # ltrim key
+  key="${key%"${key##*[![:space:]]}"}"
+  key="${key#"${key%%[![:space:]]*}"}"
   val="${val%"${val##*[![:space:]]}"}"
   val="${val#"${val%%[![:space:]]*}"}"
   val="${val%\"}"
@@ -70,55 +66,68 @@ dns_proxy_ingest_line() {
       dns_proxy_set_if_empty HTTPS "$val"
       ;;
   esac
+  return 0
 }
 
 dns_proxy_ingest_file() {
   local f="$1" line
   [[ -f "$f" ]] || return 0
   while IFS= read -r line || [[ -n "$line" ]]; do
-    dns_proxy_ingest_line "$line"
-  done <"$f"
+    dns_proxy_ingest_line "$line" || true
+  done <"$f" || true
+  return 0
 }
 
 dns_load_host_proxy() {
   local f dir="${DNS_INSTALL_DIR:-${DNS_DIR:-/opt/dns}}"
 
-  # shell env already wins (set_if_empty only fills gaps)
-
-  dns_proxy_ingest_file /etc/environment
+  dns_proxy_ingest_file /etc/environment || true
   for f in /etc/systemd/system/docker.service.d/*.conf; do
-    dns_proxy_ingest_file "$f"
+    dns_proxy_ingest_file "$f" || true
   done
-  dns_proxy_ingest_file /etc/dnf/dnf.conf
-  dns_proxy_ingest_file /etc/yum.conf
-  # panel .env (часто сюда же кладут HTTP_PROXY на корп)
-  dns_proxy_ingest_file "${dir}/.env"
-  dns_proxy_ingest_file /opt/dns/.env
+  dns_proxy_ingest_file /etc/dnf/dnf.conf || true
+  dns_proxy_ingest_file /etc/yum.conf || true
+  dns_proxy_ingest_file "${dir}/.env" || true
+  dns_proxy_ingest_file /opt/dns/.env || true
 
   HTTP_PROXY="${HTTP_PROXY:-${http_proxy:-}}"
   HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-${HTTP_PROXY:-}}}"
   NO_PROXY="${NO_PROXY:-${no_proxy:-localhost,127.0.0.1,::1}}"
   export HTTP_PROXY HTTPS_PROXY NO_PROXY
   export http_proxy="${HTTP_PROXY}" https_proxy="${HTTPS_PROXY}" no_proxy="${NO_PROXY}"
+  return 0
 }
 
+# Always return 0 — update.sh идёт с set -euo pipefail, restart docker не должен убивать update.
 dns_configure_docker_host_proxy() {
   local drop_dir="/etc/systemd/system/docker.service.d"
   local drop_file="${drop_dir}/http-proxy.conf"
-  local tmp new_hash old_hash
+  local tmp new_hash old_hash need_restart=0
 
+  # isolate from caller pipefail/errexit
+  set +e
+  set +o pipefail 2>/dev/null || true
+
+  echo "[dns-proxy] load…"
   dns_load_host_proxy
 
   if [[ -z "${HTTP_PROXY}" && -z "${HTTPS_PROXY}" ]]; then
     echo "[dns-proxy] HTTP(S)_PROXY не найден (shell /etc/environment docker.d dnf /opt/dns/.env)"
     echo "[dns-proxy] dockerd без drop-in — pull base images только напрямую"
-    echo "[dns-proxy] debug: env HTTP_PROXY=${HTTP_PROXY:-<empty>} http_proxy=${http_proxy:-<empty>}"
+    echo "[dns-proxy] debug: HTTP_PROXY=<empty>"
+    set -e
+    set -o pipefail 2>/dev/null || true
     return 0
   fi
   echo "[dns-proxy] using $(dns_proxy_redact "${HTTPS_PROXY:-$HTTP_PROXY}")"
 
-  mkdir -p "$drop_dir"
-  tmp="$(mktemp)"
+  mkdir -p "$drop_dir" || echo "[dns-proxy] WARN: mkdir $drop_dir failed"
+  tmp="$(mktemp /tmp/dns-docker-proxy.XXXXXX)" || {
+    echo "[dns-proxy] WARN: mktemp failed"
+    set -e
+    set -o pipefail 2>/dev/null || true
+    return 0
+  }
   {
     echo "# managed by dns panel (install/update) — pull/build via host proxy"
     echo "[Service]"
@@ -130,42 +139,54 @@ dns_configure_docker_host_proxy() {
     printf 'Environment="no_proxy=%s"\n' "$NO_PROXY"
   } >"$tmp"
 
-  new_hash="$(sha256sum "$tmp" | awk '{print $1}')"
+  new_hash="$(sha256sum "$tmp" 2>/dev/null | awk '{print $1}')"
   old_hash=""
-  [[ -f "$drop_file" ]] && old_hash="$(sha256sum "$drop_file" | awk '{print $1}')"
+  [[ -f "$drop_file" ]] && old_hash="$(sha256sum "$drop_file" 2>/dev/null | awk '{print $1}')"
 
-  if [[ "$new_hash" == "$old_hash" ]]; then
+  if [[ -n "$new_hash" && "$new_hash" == "$old_hash" ]]; then
     rm -f "$tmp"
-    echo "[dns-proxy] dockerd drop-in актуален: ${drop_file} ($(dns_proxy_redact "${HTTP_PROXY:-${HTTPS_PROXY}}"))"
+    echo "[dns-proxy] drop-in актуален: ${drop_file}"
+    set -e
+    set -o pipefail 2>/dev/null || true
     return 0
   fi
 
-  mv "$tmp" "$drop_file"
-  chmod 644 "$drop_file"
-  echo "[dns-proxy] записан ${drop_file} ($(dns_proxy_redact "${HTTP_PROXY:-${HTTPS_PROXY}}"))"
+  if mv "$tmp" "$drop_file"; then
+    chmod 644 "$drop_file" 2>/dev/null || true
+    echo "[dns-proxy] записан ${drop_file}"
+    need_restart=1
+  else
+    echo "[dns-proxy] WARN: не смог записать ${drop_file}"
+    rm -f "$tmp"
+  fi
 
-  if ! command -v systemctl >/dev/null 2>&1; then
-    return 0
+  if [[ "$need_restart" -eq 1 ]] && command -v systemctl >/dev/null 2>&1; then
+    echo "[dns-proxy] daemon-reload…"
+    systemctl daemon-reload || echo "[dns-proxy] WARN: daemon-reload failed"
+    if systemctl is-active --quiet docker 2>/dev/null; then
+      echo "[dns-proxy] restart docker (до 90с)…"
+      if command -v timeout >/dev/null 2>&1; then
+        timeout 90 systemctl restart docker || echo "[dns-proxy] WARN: docker restart rc=$?"
+      else
+        systemctl restart docker || echo "[dns-proxy] WARN: docker restart rc=$?"
+      fi
+      echo "[dns-proxy] docker restart done"
+    else
+      echo "[dns-proxy] docker не active — restart пропуск"
+    fi
   fi
-  echo "[dns-proxy] daemon-reload…"
-  systemctl daemon-reload || echo "[dns-proxy] WARN: daemon-reload failed"
-  if systemctl is-active --quiet docker 2>/dev/null; then
-    echo "[dns-proxy] restart docker (1–2 мин, контейнеры dns-* кратко упадут)…"
-    systemctl restart docker || echo "[dns-proxy] WARN: docker restart failed"
-    echo "[dns-proxy] docker снова up"
-  fi
+
+  set -e
+  set -o pipefail 2>/dev/null || true
+  return 0
 }
 
-# No network probe — curl→Hub на корп без proxy (или с долгим timeout) зависает
-# на «[3c/4]» и выглядит как поломка. Только load + drop-in + статус.
 dns_assert_registry_pull_path() {
-  dns_load_host_proxy
+  dns_load_host_proxy || true
   if [[ -n "${HTTP_PROXY}${HTTPS_PROXY}" ]]; then
     echo "[dns-proxy] OK proxy=$(dns_proxy_redact "${HTTPS_PROXY:-$HTTP_PROXY}") → compose"
-    return 0
+  else
+    echo "[dns-proxy] WARN: HTTP(S)_PROXY пуст — compose всё равно"
   fi
-  echo "[dns-proxy] WARN: HTTP(S)_PROXY пуст после load (shell/environment/docker.d/dnf/.env)"
-  echo "[dns-proxy] продолжаем compose — если FROM повиснет 0B, проверь dockerd drop-in:"
-  echo "[dns-proxy]   systemctl show docker -p Environment | tr ' ' '\\n' | grep -i proxy"
   return 0
 }
