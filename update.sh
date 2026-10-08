@@ -165,12 +165,15 @@ if [ "${1:-}" != "--continue" ]; then
   if [ -n "$tip" ] && [ "$got" != "$tip" ]; then
     echo -e "${yellow}WARN:${plain} ls-remote=${tip:0:7} ≠ clone=${got:0:7} — возможен кэш/зеркало proxy"
   fi
-  # старый зависающий шаг был ровно: «host proxy / registry check»
-  if grep -qF 'host proxy / registry check' "$CLONE_NEW/update.sh" 2>/dev/null; then
-    echo -e "${red}ERROR:${plain} в клоне старый update.sh (шаг registry-check). Нужен ≥7998e60."
+  # Old hung step echo (split needle — иначе grep ловит сам себя в этом файле)
+  _old3c='[3c/4] host proxy /'
+  _old3c+=' registry check'
+  if grep -qF "$_old3c" "$CLONE_NEW/update.sh" 2>/dev/null; then
+    echo -e "${red}ERROR:${plain} в клоне старый update.sh (hung 3c step). Нужен ≥7998e60."
     echo "  git ls-remote $REPO_URL refs/heads/$BRANCH"
     exit 1
   fi
+  unset _old3c
   if ! grep -qF '[3c/4] host proxy' "$CLONE_NEW/update.sh" 2>/dev/null; then
     echo -e "${yellow}WARN:${plain} update.sh в клоне без шага [3c/4] host proxy"
   fi
