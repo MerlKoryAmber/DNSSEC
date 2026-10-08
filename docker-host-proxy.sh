@@ -190,3 +190,58 @@ dns_assert_registry_pull_path() {
   fi
   return 0
 }
+
+# Записать TECHNITIUM_*_PROXY в .env из системных HTTP(S)_PROXY (не руками).
+# Источник: /etc/environment, docker.d, dnf — без чтения старых TECHNITIUM_* из .env.
+dns_proxy_env_set_kv() {
+  local file="$1" key="$2" val="$3" tmp
+  [[ -n "$file" && -n "$key" ]] || return 0
+  mkdir -p "$(dirname "$file")" 2>/dev/null || true
+  touch "$file" 2>/dev/null || return 0
+  tmp="$(mktemp /tmp/dns-env.XXXXXX)" || return 0
+  if grep -qE "^[[:space:]]*${key}=" "$file" 2>/dev/null; then
+    sed -E "s|^[[:space:]]*${key}=.*|${key}=${val}|" "$file" >"$tmp"
+  else
+    cat "$file" >"$tmp"
+    printf '%s=%s\n' "$key" "$val" >>"$tmp"
+  fi
+  mv "$tmp" "$file"
+}
+
+dns_sync_technitium_proxy_env() {
+  local dir envf http https shell_http shell_https f
+  dir="${DNS_INSTALL_DIR:-${DNS_DIR:-/opt/dns}}"
+  envf="${dir}/.env"
+
+  set +e
+  shell_http="${HTTP_PROXY:-${http_proxy:-}}"
+  shell_https="${HTTPS_PROXY:-${https_proxy:-}}"
+  # системный proxy без .env (иначе зациклимся на своих TECHNITIUM_*)
+  HTTP_PROXY=""; HTTPS_PROXY=""; http_proxy=""; https_proxy=""
+  NO_PROXY=""; no_proxy=""
+  dns_proxy_ingest_file /etc/environment || true
+  for f in /etc/systemd/system/docker.service.d/*.conf; do
+    dns_proxy_ingest_file "$f" || true
+  done
+  dns_proxy_ingest_file /etc/dnf/dnf.conf || true
+  dns_proxy_ingest_file /etc/yum.conf || true
+  http="${HTTP_PROXY:-${http_proxy:-${shell_http}}}"
+  https="${HTTPS_PROXY:-${https_proxy:-${shell_https:-${http}}}}"
+
+  if [[ ! -f "$envf" ]]; then
+    echo "[dns-proxy] sync Technitium: нет ${envf} — пропуск"
+    set -e
+    return 0
+  fi
+
+  dns_proxy_env_set_kv "$envf" TECHNITIUM_HTTP_PROXY "$http"
+  dns_proxy_env_set_kv "$envf" TECHNITIUM_HTTPS_PROXY "$https"
+
+  if [[ -n "$http$https" ]]; then
+    echo "[dns-proxy] Technitium .env ← $(dns_proxy_redact "${https:-$http}")"
+  else
+    echo "[dns-proxy] Technitium .env ← (пусто, напрямую)"
+  fi
+  set -e
+  return 0
+}

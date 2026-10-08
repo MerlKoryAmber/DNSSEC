@@ -86,9 +86,10 @@
 - **docker build RUN (pip/apk):** BuildKit ≠ proxy демона. Compose `build.args` +
   `ARG` в Dockerfiles; shell export перед `compose up --build`.
 - **runtime dns-* (кроме Technitium):** `x-proxy-guard` — пустые `*_PROXY` + `NO_PROXY` (mesh).
-- **Technitium outbound (block lists):** `TECHNITIUM_HTTP_PROXY` /
-  `TECHNITIUM_HTTPS_PROXY` в `.env`; mesh в `TECHNITIUM_NO_PROXY`. ACL — на
-  корп-прокси. Пусто = напрямую.
+- **Technitium outbound (block lists):** `dns_sync_technitium_proxy_env` при
+  install/update пишет `TECHNITIUM_HTTP(S)_PROXY` в `.env` из системных
+  HTTP(S)_PROXY. Mesh в `TECHNITIUM_NO_PROXY`. ACL — на корп-прокси.
+  Пусто = напрямую. Не руками.
 
 **Лимиты логов (диск):**
 | Источник | Лимит |

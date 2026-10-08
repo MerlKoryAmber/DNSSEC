@@ -249,6 +249,7 @@ echo "[3c/4] configure dockerd drop-in…"
 dns_configure_docker_host_proxy || echo "[dns-proxy] WARN: configure rc=$?"
 echo "[3c/4] configure done"
 dns_load_host_proxy || true
+dns_sync_technitium_proxy_env || echo "[dns-proxy] WARN: technitium env sync rc=$?"
 dns_assert_registry_pull_path || true
 export HTTP_PROXY HTTPS_PROXY NO_PROXY
 export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
