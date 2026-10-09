@@ -258,7 +258,8 @@ def score_query(
         score += 1
         reasons.append("nxdomain")
 
-    if track_burst:
+    # burstScore=0 → выкл (за 2–3-м форвардером client IP = upstream, не юзер)
+    if track_burst and burst_pts > 0:
         if score >= 2 or max_len >= 16 or best_ent >= ent_soft:
             if _note_burst(client_ip, qname, burst_win, burst_n):
                 score += burst_pts

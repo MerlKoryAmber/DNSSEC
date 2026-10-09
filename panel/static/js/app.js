@@ -2072,7 +2072,7 @@
                       <span>/</span>
                       <input type="number" id="susBurstScore" class="input-sm" min="0" max="20" value="${num("burstScore", 3)}" />
                     </div>
-                    <div class="hint">In-memory per panel process. Default ${d.burstWindowSec ?? 60}s / ${d.burstUnique ?? 8} / +${d.burstScore ?? 3}.</div>
+                    <div class="hint">In-memory per panel process. Default ${d.burstWindowSec ?? 60}s / ${d.burstUnique ?? 8} / +${d.burstScore ?? 3}. Score <strong>0</strong> = off (если DNS не первый hop — в логе IP форвардера, не клиента).</div>
                   </div>
                 </div>
               </div>
