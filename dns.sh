@@ -112,7 +112,7 @@ cmd_update_keep() {
     echo -e "${red}ERROR:${plain} $UPDATE_SH not found"
     return 1
   fi
-  if ! confirm "Run update from GitHub (keep Technitium data / .env / TLS)?"; then
+  if ! confirm "Run update from GitHub (keep DNS data / .env / TLS)?"; then
     echo "Cancelled."
     return 0
   fi
@@ -126,12 +126,12 @@ cmd_update_wipe() {
     echo -e "${red}ERROR:${plain} $UPDATE_SH not found"
     return 1
   fi
-  echo -e "${yellow}WARNING:${plain} wipes config/technitium (zones, query logs, certs for DoT)."
-  if ! confirm "Really wipe Technitium data and update?"; then
+  echo -e "${yellow}WARNING:${plain} wipes DNS data (zones, query logs, DoT/DoH certs)."
+  if ! confirm "Really wipe DNS data and update?"; then
     echo "Cancelled."
     return 0
   fi
-  if ! confirm "Second confirm — WIPE Technitium data?"; then
+  if ! confirm "Second confirm — WIPE DNS data?"; then
     echo "Cancelled."
     return 0
   fi
@@ -156,43 +156,66 @@ cmd_uninstall() {
 }
 
 cmd_password() {
-  local cur new1 new2 token host
+  # Forgot-password: engine recovery via auth.config → resetadmin.config → admin/admin.
+  # Пользователю — «пароль панели», без имён движков.
+  local auth reset_marker bak host i token
+  auth="${DNS_DIR}/config/technitium/auth.config"
+  reset_marker="${DNS_DIR}/config/technitium/resetadmin.config"
   host="http://127.0.0.1:5380"
-  if ! curl -sf "${host}/api/status" >/dev/null 2>&1; then
-    echo -e "${red}ERROR:${plain} Technitium API not reachable on 127.0.0.1:5380"
+
+  echo "Resets panel login to default: user admin / password admin"
+  echo "(zones and other DNS data stay; only login credentials reset)."
+  if ! confirm "Reset panel admin password now?"; then
+    echo "Cancelled."
+    return 0
+  fi
+  if [ ! -f "$auth" ] && [ ! -f "$reset_marker" ]; then
+    echo -e "${red}ERROR:${plain} auth file missing under ${DNS_DIR}/config/technitium/"
     return 1
   fi
-  read -r -s -p "Current admin password: " cur
-  echo ""
-  read -r -s -p "New admin password: " new1
-  echo ""
-  read -r -s -p "Repeat new password: " new2
-  echo ""
-  if [ -z "$new1" ]; then
-    echo "Empty password — cancelled."
+  if ! docker inspect dns-technitium >/dev/null 2>&1; then
+    echo -e "${red}ERROR:${plain} dns-technitium not running"
     return 1
   fi
-  if [ "$new1" != "$new2" ]; then
-    echo "Passwords do not match."
+
+  mkdir -p "${DNS_DIR}/storage/backups"
+  bak="${DNS_DIR}/storage/backups/auth.config.$(date +%Y%m%d-%H%M%S)"
+  if [ -f "$auth" ]; then
+    cp -a "$auth" "$bak" || echo "WARN: could not backup auth file"
+    echo "Backup: $bak"
+  fi
+
+  echo "Stopping DNS engine…"
+  docker stop dns-technitium >/dev/null || true
+  # Official recovery name: rename auth.config → resetadmin.config
+  if [ -f "$auth" ]; then
+    mv -f "$auth" "$reset_marker"
+  elif [ ! -f "$reset_marker" ]; then
+    echo -e "${red}ERROR:${plain} nothing to reset"
+    docker start dns-technitium >/dev/null || true
     return 1
   fi
+  echo "Starting DNS engine…"
+  docker start dns-technitium >/dev/null || {
+    echo -e "${red}ERROR:${plain} failed to start dns-technitium"
+    return 1
+  }
+  for i in $(seq 1 45); do
+    if curl -sf "${host}/api/status" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
   token="$(curl -sf -X POST "${host}/api/user/login" \
     --data-urlencode "user=admin" \
-    --data-urlencode "pass=${cur}" \
+    --data-urlencode "pass=admin" \
     | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" || true
   if [ -z "${token:-}" ]; then
-    echo -e "${red}ERROR:${plain} login failed (wrong current password?)"
-    return 1
+    echo -e "${yellow}WARN:${plain} engine up, but login admin/admin not confirmed yet — try panel in a few seconds"
+    return 0
   fi
-  if curl -sf -G "${host}/api/user/changePassword" \
-    --data-urlencode "token=${token}" \
-    --data-urlencode "pass=${cur}" \
-    --data-urlencode "newPass=${new1}" >/dev/null; then
-    echo -e "${green}OK:${plain} admin password changed"
-  else
-    echo -e "${red}ERROR:${plain} changePassword failed"
-    return 1
-  fi
+  echo -e "${green}OK:${plain} panel login reset → admin / admin"
+  echo "Change password after login (panel user menu)."
 }
 
 cmd_restart() {
@@ -231,9 +254,9 @@ cmd_backup() {
     cp -a "${DNS_DIR}/nginx/generated/." "${dest}/nginx-generated/" 2>/dev/null || true
   fi
   if [ -d "${DNS_DIR}/config/technitium" ]; then
-    echo "Copying Technitium data (may take a while)…"
+    echo "Copying DNS data (may take a while)…"
     tar -C "${DNS_DIR}/config" -czf "${dest}/technitium.tgz" technitium 2>/dev/null \
-      || echo "WARN: technitium archive failed"
+      || echo "WARN: DNS data archive failed"
   fi
   [ -f "$INSTALL_META" ] && cp -a "$INSTALL_META" "${dest}/install.env"
   echo "Backup: $dest"
@@ -242,7 +265,7 @@ cmd_backup() {
 
 cmd_fix_forwarder() {
   if ! docker inspect dns-blocky >/dev/null 2>&1; then
-    echo -e "${red}ERROR:${plain} dns-blocky not running"
+    echo -e "${red}ERROR:${plain} upstream resolver container not running"
     return 1
   fi
   local sync="${DNS_DIR}/sync-blocky-forwarder.sh"
@@ -373,7 +396,7 @@ port_reserved() {
 port_conflict_msg() {
   local p="$1" role="$2"
   if port_reserved "$p"; then
-    echo "ERROR: ${role} port ${p} reserved for DNS stack (53 / DoT ${DOT_PORT} / Technitium 5380)"
+    echo "ERROR: ${role} port ${p} reserved for DNS stack (53 / DoT ${DOT_PORT} / local API 5380)"
     return 0
   fi
   if port_in_use "$p"; then
@@ -497,13 +520,13 @@ show_usage() {
   echo "  dns ports           Set panel HTTP/HTTPS ports (+ HTTP on/off)"
   echo "  dns ports <http> <https> <on|off>"
   echo "  dns update          Update from GitHub (keep data)"
-  echo "  dns update-wipe     Update + wipe Technitium data"
+  echo "  dns update-wipe     Update + wipe DNS data"
   echo "  dns uninstall       Remove stack"
-  echo "  dns password        Reset Technitium admin password"
+  echo "  dns password        Reset panel admin password (→ admin/admin)"
   echo "  dns restart         Restart all dns-* containers"
   echo "  dns restart-nginx   Restart dns-nginx only"
-  echo "  dns backup          Backup .env / TLS / panel / Technitium"
-  echo "  dns fix-forwarder   Set Technitium forwarder = Blocky IP"
+  echo "  dns backup          Backup .env / TLS / panel / DNS data"
+  echo "  dns fix-forwarder   Fix upstream forwarder"
   echo "  dns help            This text"
   echo ""
   echo "Does not touch /opt/radiusproxy, /opt/spm, or foreign containers."
@@ -511,18 +534,18 @@ show_usage() {
 
 show_menu() {
   echo ""
-  echo -e " ${green}DNS Panel${plain} — Technitium + Blocky"
+  echo -e " ${green}DNS Panel${plain}"
   echo " ------------------------------------------"
   echo -e " ${green}1.${plain} Update (keep data)"
-  echo -e " ${green}2.${plain} Update + wipe Technitium data"
+  echo -e " ${green}2.${plain} Update + wipe DNS data"
   echo -e " ${green}3.${plain} Uninstall"
-  echo -e " ${green}4.${plain} Reset Technitium admin password"
+  echo -e " ${green}4.${plain} Reset panel admin password"
   echo -e " ${green}5.${plain} Status"
   echo -e " ${green}6.${plain} Restart stack"
   echo -e " ${green}7.${plain} Restart nginx"
   echo -e " ${green}8.${plain} Backup"
   echo -e " ${green}9.${plain} Show panel URL"
-  echo -e " ${green}10.${plain} Fix Blocky forwarder IP"
+  echo -e " ${green}10.${plain} Fix upstream forwarder"
   echo -e " ${green}11.${plain} Set panel ports (HTTP/HTTPS)"
   echo -e " ${green}0.${plain} Exit"
   echo " ------------------------------------------"

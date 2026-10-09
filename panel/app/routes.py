@@ -310,8 +310,8 @@ class SuspicionPrefsBody(BaseModel):
     depthSoft: int | None = Field(default=None, ge=2, le=20)
     scoreSuspicious: int | None = Field(default=None, ge=1, le=30)
     scoreHigh: int | None = Field(default=None, ge=1, le=40)
-    burstWindowSec: int | None = Field(default=None, ge=5, le=600)
-    burstUnique: int | None = Field(default=None, ge=3, le=100)
+    burstWindowSec: int | None = Field(default=None, ge=0, le=600)
+    burstUnique: int | None = Field(default=None, ge=0, le=100)
     burstScore: int | None = Field(default=None, ge=0, le=20)
 
 

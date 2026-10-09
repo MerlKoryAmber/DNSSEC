@@ -2013,30 +2013,38 @@
             <div class="proto-list">
               <div class="proto-row">
                 <div class="proto-main">
-                  <div class="field field-flush">
-                    <label>Label length (soft / hard)</label>
-                    <div class="blk-inline">
-                      <input type="number" id="susLabSoft" class="input-sm" min="8" max="200" value="${num("labelLenSoft", 25)}" title="soft" />
-                      <span>/</span>
-                      <input type="number" id="susLabHard" class="input-sm" min="10" max="255" value="${num("labelLenHard", 40)}" title="hard" />
+                  <div class="field-group-title">Label length</div>
+                  <div class="sus-fields">
+                    <div class="field field-flush">
+                      <label for="susLabSoft">Soft</label>
+                      <input type="number" id="susLabSoft" class="input-sm" min="8" max="200" value="${num("labelLenSoft", 25)}" />
                     </div>
-                    <div class="hint">Default ${d.labelLenSoft ?? 25} / ${d.labelLenHard ?? 40}. Long labels → +2 / +3.</div>
+                    <div class="field field-flush">
+                      <label for="susLabHard">Hard</label>
+                      <input type="number" id="susLabHard" class="input-sm" min="10" max="255" value="${num("labelLenHard", 40)}" />
+                    </div>
                   </div>
+                  <div class="hint">Default soft ${d.labelLenSoft ?? 25}, hard ${d.labelLenHard ?? 40}. Long labels → +2 / +3.</div>
                 </div>
               </div>
               <div class="proto-row">
                 <div class="proto-main">
-                  <div class="field field-flush">
-                    <label>Entropy (soft / hard) · min label len</label>
-                    <div class="blk-inline">
+                  <div class="field-group-title">Entropy</div>
+                  <div class="sus-fields">
+                    <div class="field field-flush">
+                      <label for="susEntSoft">Soft</label>
                       <input type="number" id="susEntSoft" class="input-sm" min="1" max="6" step="0.1" value="${num("entropySoft", 3.3)}" />
-                      <span>/</span>
-                      <input type="number" id="susEntHard" class="input-sm" min="1" max="8" step="0.1" value="${num("entropyHard", 4.0)}" />
-                      <span>·</span>
-                      <input type="number" id="susEntMin" class="input-sm" min="4" max="64" value="${num("entropyMinLen", 12)}" title="min len" />
                     </div>
-                    <div class="hint">Shannon on alnum core. Default ${d.entropySoft ?? 3.3} / ${d.entropyHard ?? 4.0} · ${d.entropyMinLen ?? 12}.</div>
+                    <div class="field field-flush">
+                      <label for="susEntHard">Hard</label>
+                      <input type="number" id="susEntHard" class="input-sm" min="1" max="8" step="0.1" value="${num("entropyHard", 4.0)}" />
+                    </div>
+                    <div class="field field-flush">
+                      <label for="susEntMin">Min label length</label>
+                      <input type="number" id="susEntMin" class="input-sm" min="4" max="64" value="${num("entropyMinLen", 12)}" />
+                    </div>
                   </div>
+                  <div class="hint">Shannon on alnum core. Default soft ${d.entropySoft ?? 3.3}, hard ${d.entropyHard ?? 4.0}, min len ${d.entropyMinLen ?? 12}.</div>
                 </div>
               </div>
               <div class="proto-row">
@@ -2050,30 +2058,38 @@
               </div>
               <div class="proto-row">
                 <div class="proto-main">
-                  <div class="field field-flush">
-                    <label>Level cutoffs (suspicious / high score)</label>
-                    <div class="blk-inline">
+                  <div class="field-group-title">Level cutoffs</div>
+                  <div class="sus-fields">
+                    <div class="field field-flush">
+                      <label for="susScoreSus">Suspicious score</label>
                       <input type="number" id="susScoreSus" class="input-sm" min="1" max="30" value="${num("scoreSuspicious", 3)}" />
-                      <span>/</span>
+                    </div>
+                    <div class="field field-flush">
+                      <label for="susScoreHigh">High score</label>
                       <input type="number" id="susScoreHigh" class="input-sm" min="1" max="40" value="${num("scoreHigh", 6)}" />
                     </div>
-                    <div class="hint">Default ${d.scoreSuspicious ?? 3} / ${d.scoreHigh ?? 6}.</div>
                   </div>
+                  <div class="hint">Default suspicious ${d.scoreSuspicious ?? 3}, high ${d.scoreHigh ?? 6}.</div>
                 </div>
               </div>
               <div class="proto-row">
                 <div class="proto-main">
-                  <div class="field field-flush">
-                    <label>Client burst (window sec / unique names / score)</label>
-                    <div class="blk-inline">
-                      <input type="number" id="susBurstWin" class="input-sm" min="5" max="600" value="${num("burstWindowSec", 60)}" />
-                      <span>/</span>
-                      <input type="number" id="susBurstN" class="input-sm" min="3" max="100" value="${num("burstUnique", 8)}" />
-                      <span>/</span>
+                  <div class="field-group-title">Client burst</div>
+                  <div class="sus-fields">
+                    <div class="field field-flush">
+                      <label for="susBurstWin">Window (sec)</label>
+                      <input type="number" id="susBurstWin" class="input-sm" min="0" max="600" value="${num("burstWindowSec", 60)}" />
+                    </div>
+                    <div class="field field-flush">
+                      <label for="susBurstN">Unique names</label>
+                      <input type="number" id="susBurstN" class="input-sm" min="0" max="100" value="${num("burstUnique", 8)}" />
+                    </div>
+                    <div class="field field-flush">
+                      <label for="susBurstScore">Score</label>
                       <input type="number" id="susBurstScore" class="input-sm" min="0" max="20" value="${num("burstScore", 3)}" />
                     </div>
-                    <div class="hint">In-memory per panel process. Default ${d.burstWindowSec ?? 60}s / ${d.burstUnique ?? 8} / +${d.burstScore ?? 3}. Score <strong>0</strong> = off (если DNS не первый hop — в логе IP форвардера, не клиента).</div>
                   </div>
+                  <div class="hint">In-memory per panel process. Defaults: window ${d.burstWindowSec ?? 60}s, unique ${d.burstUnique ?? 8}, score +${d.burstScore ?? 3}. Any field <strong>0</strong> = burst off (if DNS is not the first hop — log shows forwarder IP, not the client).</div>
                 </div>
               </div>
             </div>

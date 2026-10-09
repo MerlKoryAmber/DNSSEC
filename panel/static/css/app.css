@@ -744,6 +744,39 @@ table.data tr.is-disabled td {
   gap: var(--space-md);
   width: 100%;
 }
+/* Подписи групп/полей — один muted (не section-title / не accent) */
+.field-group-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ir-text-muted);
+}
+.sus-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-md);
+}
+.sus-fields .field {
+  flex: 0 1 auto;
+  min-width: 7rem;
+}
+.sus-fields .field label {
+  display: block;
+  margin-bottom: 0.35em;
+  font-size: 0.82rem;
+  color: var(--ir-text-muted);
+}
+.sus-fields .input-sm {
+  width: 5.5rem;
+}
+.proto-main > label:not(.inline) {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--ir-text-muted);
+}
 .blk-inline {
   display: flex;
   flex-wrap: wrap;
@@ -894,7 +927,6 @@ table.data tr.is-disabled td {
   grid-column: 1 / -1;
 }
 .proto-main { min-width: 0; }
-.proto-main .hint { margin-top: 4px; }
 .proto-port {
   display: flex;
   flex-direction: column;
@@ -1147,9 +1179,19 @@ table.data tr.is-disabled td {
   border-color: var(--ir-accent);
 }
 .field textarea { min-height: 96px; resize: vertical; }
-.field .hint {
+/* Все .hint — мелкий muted; иначе вне .field наследуют крупный/яркий текст */
+.hint {
   font-size: 0.75rem;
   color: var(--ir-text-muted);
+  font-weight: 400;
+  margin: 0;
+}
+.hint strong {
+  color: var(--ir-text-muted);
+  font-weight: 600;
+}
+.field .hint,
+.proto-main .hint {
   margin-top: 4px;
 }
 .form-error {
