@@ -15,6 +15,17 @@ ports:
 log:
   level: info
 
+# какой upstream ответил → CSV → панель Query log колонка Upstream
+queryLog:
+  type: csv
+  target: /logs
+  logRetentionDays: 14
+  fields:
+    - clientIP
+    - question
+    - responseReason
+    - duration
+
 caching:
   minTime: 5m
   maxTime: 30m

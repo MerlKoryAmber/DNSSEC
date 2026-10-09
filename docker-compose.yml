@@ -59,6 +59,8 @@ services:
     # Фиксированный IP: Technitium forwarder не ломается после recreate
     volumes:
       - ./config/blocky:/app/config:ro
+      # CSV query log (upstream в responseReason) — rw, отдельно от :ro config
+      - ./config/blocky/querylogs:/logs
     environment:
       <<: *proxy-guard
     command: ["--config", "/app/config/config.yml"]
@@ -144,6 +146,7 @@ services:
       TECHNITIUM_CONFIG_DIR: /var/lib/dns-config
       TECHNITIUM_CERT_PATH: /etc/dns/ssl/dns-tls.pfx
       BLOCKY_CONFIG_PATH: /var/lib/blocky/config.yml
+      BLOCKY_QUERYLOG_DIR: /var/lib/blocky/querylogs
       BLOCKY_UPSTREAM: blocky
       DNS_BLOCKY_IP: ${DNS_BLOCKY_IP:-172.18.0.100}
       PANEL_DATA_DIR: /var/lib/panel

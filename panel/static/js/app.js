@@ -1560,6 +1560,7 @@
               <th>Domain</th>
               <th>Type</th>
               <th>Proto</th>
+              <th>Upstream</th>
               <th>Response</th>
               <th>Risk</th>
               <th></th>
@@ -1572,12 +1573,14 @@
               const rt = e.responseType || e.rcode || "—";
               const isBlocked = /Blocked/i.test(String(e.responseType || ""));
               const sus = e.suspicion || null;
+              const up = e.upstream || "";
               return `<tr>
                 <td class="nowrap">${escapeHtml(ts)}</td>
                 <td>${escapeHtml(e.clientIpAddress || "—")}</td>
                 <td><div class="cell-url">${escapeHtml(qn)}</div></td>
                 <td>${escapeHtml(e.qtype || "—")}</td>
                 <td>${escapeHtml(e.protocol || "—")}</td>
+                <td class="cell-url" title="${escapeHtml(up || "—")}">${escapeHtml(up || "—")}</td>
                 <td><span class="${badgeClass(rt)}">${escapeHtml(rt)}</span></td>
                 <td>${suspicionBadge(sus)}</td>
                 <td class="actions">

@@ -45,7 +45,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 
 ## Ключевые файлы
 
-`panel/app/routes.py`, `auth.py`, `blocky_glue.py`, `session_secret.py`, `signals.py`, `technitium.py`, `blocky_config.py`, `tls_store.py`, `panel_tls.py`, `dns_suspicion.py`,  
+`panel/app/routes.py`, `auth.py`, `blocky_glue.py`, `blocky_querylog.py`, `session_secret.py`, `signals.py`, `technitium.py`, `blocky_config.py`, `tls_store.py`, `panel_tls.py`, `dns_suspicion.py`,  
 `dns.sh`, `update.sh`, `uninstall.sh`, `install.sh`, `docker-host-proxy.sh`, `sync-blocky-forwarder.sh`,  
 
 `panel/Dockerfile`, `blocky-watch/Dockerfile`,  

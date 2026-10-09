@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     session_cookie: str = "dns_panel_token"
     session_max_age: int = 60 * 60 * 8
     blocky_config_path: str = "/var/lib/blocky/config.yml"
+    blocky_querylog_dir: str = "/var/lib/blocky/querylogs"
     blocky_upstream: str = "blocky"
     panel_data_dir: str = "/var/lib/panel"
     technitium_config_dir: str = "/var/lib/dns-config"

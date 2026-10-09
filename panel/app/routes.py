@@ -938,6 +938,14 @@ async def get_blocking_log(
         suspicious_only=suspiciousOnly,
         cfg=sus_cfg,
     )
+    from . import blocky_querylog
+
+    try:
+        blocky_querylog.ensure_querylog_in_config()
+        entries = blocky_querylog.enrich_entries(entries)
+    except OSError:
+        for e in entries:
+            e.setdefault("upstream", "")
     auto_blocked: list[str] = []
     if sus_cfg.get("autoBlock"):
         auto_blocked = await dns_suspicion.apply_auto_block(client, entries, sus_cfg)

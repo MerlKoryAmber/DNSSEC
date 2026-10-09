@@ -170,7 +170,7 @@
 | Forwarders | `routes.py` + `blocky_config.py` | `app.js` `#/forwarders` | Blocky YAML + glue Technitium |
 | Client protocol | `routes.py` settings | `app.js` `#/client-protocol` | Technitium |
 | Blocking | `routes.py` `/api/blocking*` + `blocklist_store.py` | `app.js` `#/blocking` | Lists / Allowed / Blocked |
-| Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` + `dns_suspicion.py` | `app.js` `#/query-log` | Technitium Query Logs + risk heuristics |
+| Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` + `dns_suspicion.py` + `blocky_querylog.py` | `app.js` `#/query-log` | Technitium rows + Risk; **Upstream** из Blocky CSV (`responseReason`) |
 | Settings | `routes.py` + `panel_tls.py` + `dns_suspicion.py` | `#/settings` · General · Blocking · Suspicion · Panel TLS; порты — CLI | Suspicion: auto-block + пороги |
 | Panel listen ports | `dns.sh` `ports` (+ `panel_tls.write_listen_settings`) | — | `.env` / `ui.yml` / `http.conf` |
 | Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` | `app.js` `#/dashboard` | Technitium stats + CPU/RAM + services |

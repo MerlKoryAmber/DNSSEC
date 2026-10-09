@@ -80,6 +80,19 @@ def write_forwarders(items: list[dict[str, str]]) -> list[str]:
     groups = upstreams.setdefault("groups", {})
     encoded = [encode_upstream(i["addr"], i.get("kind") or "classic") for i in items]
     groups["default"] = encoded
+    # Query log CSV → какой upstream ответил (панель колонка Upstream)
+    ql = data.get("queryLog")
+    if not isinstance(ql, dict) or ql.get("type") != "csv":
+        data["queryLog"] = {
+            "type": "csv",
+            "target": "/logs",
+            "logRetentionDays": 14,
+            "fields": ["clientIP", "question", "responseReason", "duration"],
+        }
+    try:
+        (path.parent / "querylogs").mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
     text = yaml.safe_dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
     tmp = path.with_suffix(".yml.tmp")
     tmp.write_text(text, encoding="utf-8")
