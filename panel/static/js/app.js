@@ -419,10 +419,17 @@
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
+  /** Technitium sentinel 0001-01-02 → «02.01.1»; такие не показываем. */
+  function isPlausibleDate(d) {
+    if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return false;
+    const y = d.getUTCFullYear();
+    return y >= 2000 && y <= 2100;
+  }
+
   /** Display timestamps in Settings timezone (default UTC+3 / Europe/Moscow). */
   function fmtDateTime(raw) {
     const d = asDate(raw);
-    if (!d) return "—";
+    if (!d || !isPlausibleDate(d)) return "—";
     return d.toLocaleString("ru-RU", {
       ...dateTzOptions(),
       day: "2-digit",
@@ -2293,13 +2300,15 @@
       let listSort = { key: "url", dir: 1 };
       let intervalHours = 24;
       let nextUpdatedOn = null;
+      let blockListZones = null;
 
       tools.innerHTML = `
         <input type="search" class="filter-input" id="blkFilter" placeholder="Filter by URL…" />
         <label class="toolbar-hint" for="blkInterval">Interval (h)</label>
         <input type="number" id="blkInterval" class="input-sm" min="0" max="168" value="24" />
         <button type="button" class="btn btn-secondary" id="btnSaveInterval">Save interval</button>
-        <span class="toolbar-hint" id="blkNextHint">Next: —</span>
+        <span class="toolbar-hint" id="blkLoadedHint" title="Domains loaded into the DNS engine from enabled block lists">Loaded: —</span>
+        <span class="toolbar-hint" id="blkNextHint">Next update: —</span>
         <div class="toolbar-spacer"></div>
         <button type="button" class="btn btn-secondary" id="btnBlkRefresh">Refresh</button>
         <button type="button" class="btn btn-secondary" id="btnForceLists">Update now</button>
@@ -2333,9 +2342,21 @@
           if (ka > kb) return 1 * listSort.dir;
           return 0;
         });
-        const nextLabel = nextUpdatedOn ? fmtDateTime(nextUpdatedOn) : "—";
+        const nextLabel = fmtDateTime(nextUpdatedOn);
         const nextHint = document.getElementById("blkNextHint");
-        if (nextHint) nextHint.textContent = "Next: " + nextLabel;
+        if (nextHint) nextHint.textContent = "Next update: " + nextLabel;
+        const loadedHint = document.getElementById("blkLoadedHint");
+        if (loadedHint) {
+          const n = Number(blockListZones);
+          const enabled = listCache.filter((x) => !x.disabled && x.kind !== "allow").length;
+          if (!Number.isFinite(n)) {
+            loadedHint.textContent = "Loaded: —";
+          } else if (n <= 0 && enabled > 0) {
+            loadedHint.textContent = "Loaded: 0 — not downloaded yet (Update now)";
+          } else {
+            loadedHint.textContent = `Loaded: ${fmtNum(n)} domain${n === 1 ? "" : "s"}`;
+          }
+        }
         const iv = document.getElementById("blkInterval");
         if (iv && document.activeElement !== iv) iv.value = String(intervalHours);
         if (!rows.length) {
@@ -2420,6 +2441,7 @@
           }
           intervalHours = Number(s.blockListUpdateIntervalHours) || 0;
           nextUpdatedOn = s.blockListNextUpdatedOn || null;
+          blockListZones = s.blockListZones;
           renderLists();
         } catch (ex) {
           inner.innerHTML = `<div class="empty"><strong>Error</strong><span>${escapeHtml(ex.message)}</span></div>`;
@@ -2479,8 +2501,9 @@
       document.getElementById("btnForceLists").addEventListener("click", async () => {
         try {
           await DnsApi.forceUpdateBlockLists();
-          toast("Block list update scheduled");
+          toast("Block list update started — wait, then Refresh");
           await loadLists();
+          setTimeout(() => { loadLists().catch(() => {}); }, 8000);
         } catch (ex) { toast(ex.message, "error"); }
       });
       document.getElementById("btnAddList").addEventListener("click", openAddList);

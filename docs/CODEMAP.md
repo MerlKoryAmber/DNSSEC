@@ -25,7 +25,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 | Путь | Данные |
 |------|--------|
 | `/api/dashboard` | Technitium stats + hybrid strip |
-| `/api/blocking*` | Blocking + Allowed/Blocked + Log (+ `suspicion` heuristics) |
+| `/api/blocking*` | Blocking + lists (`blockListZones` из dashboard stats; sentinel Next → UI «—») + Allowed/Blocked + Log (+ `suspicion`) |
 | `/api/forwarders*` | Blocky YAML (`config/blocky/config.yml`) |
 | `/api/zones*`, `/api/settings*` | Technitium |
 | `/api/settings/panel-tls` | nginx PEM (порты — CLI) |

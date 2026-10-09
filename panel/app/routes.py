@@ -531,6 +531,7 @@ _BLOCKING_KEYS = (
     "blockListUrls",
     "blockListUpdateIntervalHours",
     "blockListNextUpdatedOn",
+    "blockListZones",
 )
 
 
@@ -580,6 +581,15 @@ async def get_blocking(client: TechnitiumClient = Depends(get_client)):
         items = blocklist_store.ensure_presets()
     view["blockListUrls"] = blocklist_store.lines_from_items(items)
     view["blockListItems"] = items
+    # сколько доменов реально в движке после скачивания списков
+    # Technitium: dashboard/stats/get → response.stats.blockListZones
+    try:
+        st = await client.dashboard_stats("LastHour")
+        sresp = st.get("response") or st
+        stats = sresp.get("stats") if isinstance(sresp.get("stats"), dict) else {}
+        view["blockListZones"] = stats.get("blockListZones")
+    except TechnitiumError:
+        view.setdefault("blockListZones", resp.get("blockListZones"))
     return {"response": view}
 
 
