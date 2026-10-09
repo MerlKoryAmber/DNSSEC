@@ -105,9 +105,9 @@ async def _tcp_ok(host: str, port: int, timeout: float = 1.2) -> bool:
         return False
 
 
-async def _http_ok(url: str, timeout: float = 1.5) -> bool:
+async def _http_ok(url: str, timeout: float = 1.5, *, follow_redirects: bool = True) -> bool:
     try:
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=follow_redirects) as client:
             r = await client.get(url)
             return r.status_code < 500
     except Exception:
@@ -119,10 +119,12 @@ async def probe_services() -> list[dict[str, Any]]:
     blocky_host = os.environ.get("BLOCKY_UPSTREAM") or "blocky"
     nginx_url = os.environ.get("NGINX_INTERNAL_URL") or "http://nginx/"
 
+    # nginx: не follow 301→HTTPS — на проде HTTP often redirect-only + self-signed
+    # → httpx VERIFY падает → ложный down. 301/200 с :80 = up.
     tech_ok, blocky_ok, nginx_ok = await asyncio.gather(
         _http_ok(f"{tech}/"),
         _tcp_ok(blocky_host, 53),
-        _http_ok(nginx_url),
+        _http_ok(nginx_url, follow_redirects=False),
     )
     return [
         {"id": "technitium", "name": "DNS", "ok": tech_ok},
