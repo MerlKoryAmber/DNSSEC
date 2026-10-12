@@ -45,6 +45,50 @@ _SKIP_SUFFIXES = (
     ".onion.",
 )
 _SKIP_EXACT = frozenset({"localhost", "localhost.", ".", ""})
+# Mail-auth DNS (long selectors / TXT / depth) — not tunnel/DGA.
+_SKIP_LABELS = frozenset({
+    "_dmarc",
+    "_domainkey",  # DKIM: selector._domainkey.example
+    "_spf",
+    "_mta-sts",
+    "_bimi",
+    "_smtp",
+    "_dkim",
+})
+# DNSBL / RHSBL / URIBL lookups (rev-IP + deep FQDN) — mail filter noise, not DGA.
+# Match as substring on normalized qname (leading/trailing dots).
+_SKIP_ZONE_NEEDLES = (
+    ".dnsbl.",
+    ".rhsbl.",
+    ".uribl.",
+    ".surbl.",
+    ".spamhaus.",
+    ".spamcop.",
+    ".barracudacentral.",
+    ".mailspike.",
+    ".spamrats.",
+    ".uceprotect.",
+    ".abuseat.",  # CBL
+    ".dronebl.",
+    ".sorbs.",
+    ".blocklist.de.",
+    ".spameatingmonkey.",
+    ".junkemailfilter.",  # hostkarma
+    ".gbudb.",
+    ".spfbl.",
+    ".abusix.",
+    ".manitu.net.",  # ix.dnsbl.manitu.net (also hit by .dnsbl.)
+    ".efnetrbl.",
+    ".justspam.",
+    ".zapbl.",
+    ".interserver.net.",  # rbl.interserver.net
+    ".anonmails.de.",
+    ".swinog.ch.",
+    ".nordspam.",
+    ".spam.dnsbl.",
+    ".surriel.",  # psbl.surriel.com
+    ".rubyskills.",  # occasional RHSBL
+)
 _LEVEL_RANK = {"ok": 0, "suspicious": 1, "high": 2}
 
 # client_ip -> deque[(monotonic_ts, qname_key)]
@@ -158,7 +202,15 @@ def _skip_name(qname: str) -> bool:
     q = _norm_qname(qname)
     if q in _SKIP_EXACT or q.rstrip(".") in _SKIP_EXACT:
         return True
-    return any(q.endswith(sfx) or q.rstrip(".").endswith(sfx.rstrip(".")) for sfx in _SKIP_SUFFIXES)
+    if any(q.endswith(sfx) or q.rstrip(".").endswith(sfx.rstrip(".")) for sfx in _SKIP_SUFFIXES):
+        return True
+    labels = {p.lower() for p in q.rstrip(".").split(".") if p}
+    if labels & _SKIP_LABELS:
+        return True
+    # dnsbl.example / 1.2.3.4.zen.spamhaus.org
+    if q.startswith("dnsbl.") or q.startswith("rhsbl.") or q.startswith("uribl.") or q.startswith("surbl."):
+        return True
+    return any(needle in q for needle in _SKIP_ZONE_NEEDLES)
 
 
 def _note_burst(client_ip: str, qname: str, window: float, unique_need: int, now: float | None = None) -> bool:
