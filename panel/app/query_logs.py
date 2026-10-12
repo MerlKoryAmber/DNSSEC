@@ -62,8 +62,17 @@ def querylogs_db_path() -> Path:
     return cfg / "apps" / QUERY_LOGS_APP_NAME / "querylogs.db"
 
 
-def purge_allowed_low_risk(*, batch: int = 8000) -> dict[str, Any]:
-    """Delete allowed (non-blocked) rows that score level=ok. Keep blocked + risk."""
+def purge_allowed_low_risk(
+    *,
+    batch: int = 2000,
+    max_batches: int = 250,
+) -> dict[str, Any]:
+    """Delete allowed (non-blocked) rows with suspicion level=ok. Keep blocked + risk.
+
+    Important: walk the table by dlid ASC with a cursor. A DESC+LIMIT-on-newest
+    purge left old ok rows buried and made Query log look like a ~20min window
+    (page1 = newest raw rows, mostly ok noise).
+    """
     path = querylogs_db_path()
     if not path.is_file():
         return {"purged": 0, "scanned": 0, "reason": "db-missing"}
@@ -76,53 +85,78 @@ def purge_allowed_low_risk(*, batch: int = 8000) -> dict[str, Any]:
     keep = ",".join(str(x) for x in _BLOCKED_RESPONSE_TYPE_IDS)
     deleted = 0
     scanned = 0
+    kept_risk = 0
+    batches = 0
+    cursor = 0
     try:
         conn = sqlite3.connect(str(path), timeout=5.0)
         try:
             conn.execute("PRAGMA busy_timeout=5000")
             conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                f"""
-                SELECT dlid, qname, qtype, client_ip, rcode, response_type
-                FROM dns_logs
-                WHERE response_type NOT IN ({keep})
-                ORDER BY dlid DESC
-                LIMIT ?
-                """,
-                (max(100, int(batch)),),
-            ).fetchall()
-            drop_ids: list[int] = []
-            for row in rows:
-                scanned += 1
-                qtype = _DNS_QTYPE.get(int(row["qtype"] or 0), "")
-                rcode = _DNS_RCODE.get(int(row["rcode"] or 0), "")
-                sus = dns_suspicion.score_query(
-                    qname=str(row["qname"] or ""),
-                    qtype=qtype,
-                    client_ip=str(row["client_ip"] or ""),
-                    rcode=rcode,
-                    response_type="",
-                    track_burst=False,
-                    cfg=cfg,
-                )
-                if (sus.get("level") or "ok") == "ok":
-                    drop_ids.append(int(row["dlid"]))
-            if drop_ids:
-                # chunk IN lists
-                for i in range(0, len(drop_ids), 400):
-                    chunk = drop_ids[i : i + 400]
-                    placeholders = ",".join("?" * len(chunk))
-                    cur = conn.execute(
-                        f"DELETE FROM dns_logs WHERE dlid IN ({placeholders})",
-                        chunk,
+            batch_n = max(100, int(batch))
+            while batches < max(1, int(max_batches)):
+                batches += 1
+                rows = conn.execute(
+                    f"""
+                    SELECT dlid, qname, qtype, client_ip, rcode, response_type
+                    FROM dns_logs
+                    WHERE response_type NOT IN ({keep})
+                      AND dlid > ?
+                    ORDER BY dlid ASC
+                    LIMIT ?
+                    """,
+                    (cursor, batch_n),
+                ).fetchall()
+                if not rows:
+                    break
+                drop_ids: list[int] = []
+                for row in rows:
+                    scanned += 1
+                    cursor = max(cursor, int(row["dlid"]))
+                    qtype = _DNS_QTYPE.get(int(row["qtype"] or 0), "")
+                    rcode = _DNS_RCODE.get(int(row["rcode"] or 0), "")
+                    sus = dns_suspicion.score_query(
+                        qname=str(row["qname"] or ""),
+                        qtype=qtype,
+                        client_ip=str(row["client_ip"] or ""),
+                        rcode=rcode,
+                        response_type="",
+                        track_burst=False,
+                        cfg=cfg,
                     )
-                    deleted += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+                    if (sus.get("level") or "ok") == "ok":
+                        drop_ids.append(int(row["dlid"]))
+                    else:
+                        kept_risk += 1
+                if drop_ids:
+                    for i in range(0, len(drop_ids), 400):
+                        chunk = drop_ids[i : i + 400]
+                        placeholders = ",".join("?" * len(chunk))
+                        cur = conn.execute(
+                            f"DELETE FROM dns_logs WHERE dlid IN ({placeholders})",
+                            chunk,
+                        )
+                        deleted += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+                if len(rows) < batch_n:
+                    break
             conn.commit()
         finally:
             conn.close()
     except sqlite3.Error as exc:
-        return {"purged": deleted, "scanned": scanned, "reason": str(exc)}
-    return {"purged": deleted, "scanned": scanned, "keptRiskCandidates": scanned - deleted}
+        return {
+            "purged": deleted,
+            "scanned": scanned,
+            "keptRisk": kept_risk,
+            "batches": batches,
+            "reason": str(exc),
+        }
+    return {
+        "purged": deleted,
+        "scanned": scanned,
+        "keptRisk": kept_risk,
+        "batches": batches,
+        "keptRiskCandidates": kept_risk,
+    }
 
 
 def apply_log_allowed_mode(*, log_allowed: bool) -> dict[str, Any]:
