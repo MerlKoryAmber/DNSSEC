@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -903,9 +904,22 @@ async def get_blocking_log(
             ) from exc
         raise _map_error(exc) from exc
 
-    # When filtering suspicious in-process, pull a wider page then trim.
+    from . import ui_prefs
+
+    log_allowed = ui_prefs.read_log_allowed_queries()
+    # disk mode: без Log allowed — вычищаем ok-allowed, оставляем blocked + risk
+    if not log_allowed:
+        try:
+            ql.purge_allowed_low_risk()
+        except Exception:
+            pass
+
+    # When filtering suspicious / blocked+risk in-process, pull a wider page then trim.
     want = min(max(1, perPage), 200)
-    fetch_n = min(200, max(want * 4, want)) if suspiciousOnly else want
+    need_wide = suspiciousOnly or (
+        not log_allowed and not (responseType and responseType.strip())
+    )
+    fetch_n = min(200, max(want * 4, want)) if need_wide else want
 
     params: dict[str, Any] = {
         "name": logger["name"],
@@ -948,6 +962,15 @@ async def get_blocking_log(
         suspicious_only=suspiciousOnly,
         cfg=sus_cfg,
     )
+    # Log allowed off + Any type → только blocked/dropped или elevated risk
+    if not log_allowed and not suspiciousOnly and not (responseType and responseType.strip()):
+        def _keep_blocked_or_risk(row: dict[str, Any]) -> bool:
+            rt = str(row.get("responseType") or "")
+            if re.search(r"Blocked|Dropped", rt, re.I):
+                return True
+            return (row.get("suspicion") or {}).get("level") in ("suspicious", "high")
+
+        entries = [e for e in entries if _keep_blocked_or_risk(e)]
     from . import blocky_querylog
 
     try:
@@ -959,11 +982,8 @@ async def get_blocking_log(
     auto_blocked: list[str] = []
     if sus_cfg.get("autoBlock"):
         auto_blocked = await dns_suspicion.apply_auto_block(client, entries, sus_cfg)
-    if suspiciousOnly:
+    if need_wide:
         entries = entries[:want]
-    from . import ui_prefs
-
-    log_allowed = ui_prefs.read_log_allowed_queries()
     return {
         "logger": logger,
         "logAllowedQueries": log_allowed,
@@ -980,7 +1000,7 @@ async def get_blocking_log(
         "autoBlocked": auto_blocked,
         "suspicionNote": (
             "Heuristics on fetched rows (entropy / label length / rare qtype / client burst). "
-            "Not commercial TI. «Log allowed» needed to see non-blocked tunnel noise. "
+            "Not commercial TI. With «Log allowed» off, DB keeps blocked + elevated risk. "
             "Auto-block: Settings → Suspicion."
         ),
     }

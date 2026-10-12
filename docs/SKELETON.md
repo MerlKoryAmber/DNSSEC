@@ -97,7 +97,7 @@
 | Docker `json-file` (все сервисы) | `max-size: 10m`, `max-file: 3` (~150 MB стек) |
 | Technitium file log | `maxLogFileDays=30`, `logQueries=false` |
 | Technitium stats | `maxStatFileDays=90` |
-| Query Logs Sqlite | `maxLogRecords=2 500 000` (~2 GiB @ ~800 B/row), `maxLogDays=90`; Settings → General; **по умолчанию только blocked** (`logAllowedQueries=false`) |
+| Query Logs Sqlite | `maxLogRecords=2 500 000` (~2 GiB @ ~800 B/row), `maxLogDays=90`; Settings → General; **по умолчанию blocked + elevated risk** (`logAllowedQueries=false`; полный лог — «Log allowed») |
 
 ---
 

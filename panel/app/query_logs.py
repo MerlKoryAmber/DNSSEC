@@ -28,7 +28,33 @@ DEFAULT_CONFIG = {
 
 # Technitium DnsServerResponseType (README Query Logs Sqlite)
 _BLOCKED_RESPONSE_TYPE_IDS = (4, 5, 6, 7)  # Blocked, UpstreamBlocked, UpstreamBlockedCached, Dropped
-_TRIGGER_NAME = "dns_panel_blocked_only"
+_TRIGGER_NAME = "dns_panel_blocked_only"  # legacy; removed — mode is blocked+risk via purge
+
+# Common DnsType / RCODE ints → strings for suspicion scoring on raw rows
+_DNS_QTYPE = {
+    1: "A",
+    2: "NS",
+    5: "CNAME",
+    6: "SOA",
+    12: "PTR",
+    15: "MX",
+    16: "TXT",
+    28: "AAAA",
+    33: "SRV",
+    64: "SVCB",
+    65: "HTTPS",
+    255: "ANY",
+    10: "NULL",
+    99: "SPF",
+}
+_DNS_RCODE = {
+    0: "NOERROR",
+    1: "FORMERR",
+    2: "SERVFAIL",
+    3: "NXDOMAIN",
+    4: "NOTIMP",
+    5: "REFUSED",
+}
 
 
 def querylogs_db_path() -> Path:
@@ -36,10 +62,75 @@ def querylogs_db_path() -> Path:
     return cfg / "apps" / QUERY_LOGS_APP_NAME / "querylogs.db"
 
 
+def purge_allowed_low_risk(*, batch: int = 8000) -> dict[str, Any]:
+    """Delete allowed (non-blocked) rows that score level=ok. Keep blocked + risk."""
+    path = querylogs_db_path()
+    if not path.is_file():
+        return {"purged": 0, "scanned": 0, "reason": "db-missing"}
+
+    import sqlite3
+
+    from . import dns_suspicion
+
+    cfg = dns_suspicion.read_prefs()
+    keep = ",".join(str(x) for x in _BLOCKED_RESPONSE_TYPE_IDS)
+    deleted = 0
+    scanned = 0
+    try:
+        conn = sqlite3.connect(str(path), timeout=5.0)
+        try:
+            conn.execute("PRAGMA busy_timeout=5000")
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                f"""
+                SELECT dlid, qname, qtype, client_ip, rcode, response_type
+                FROM dns_logs
+                WHERE response_type NOT IN ({keep})
+                ORDER BY dlid DESC
+                LIMIT ?
+                """,
+                (max(100, int(batch)),),
+            ).fetchall()
+            drop_ids: list[int] = []
+            for row in rows:
+                scanned += 1
+                qtype = _DNS_QTYPE.get(int(row["qtype"] or 0), "")
+                rcode = _DNS_RCODE.get(int(row["rcode"] or 0), "")
+                sus = dns_suspicion.score_query(
+                    qname=str(row["qname"] or ""),
+                    qtype=qtype,
+                    client_ip=str(row["client_ip"] or ""),
+                    rcode=rcode,
+                    response_type="",
+                    track_burst=False,
+                    cfg=cfg,
+                )
+                if (sus.get("level") or "ok") == "ok":
+                    drop_ids.append(int(row["dlid"]))
+            if drop_ids:
+                # chunk IN lists
+                for i in range(0, len(drop_ids), 400):
+                    chunk = drop_ids[i : i + 400]
+                    placeholders = ",".join("?" * len(chunk))
+                    cur = conn.execute(
+                        f"DELETE FROM dns_logs WHERE dlid IN ({placeholders})",
+                        chunk,
+                    )
+                    deleted += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return {"purged": deleted, "scanned": scanned, "reason": str(exc)}
+    return {"purged": deleted, "scanned": scanned, "keptRiskCandidates": scanned - deleted}
+
+
 def apply_log_allowed_mode(*, log_allowed: bool) -> dict[str, Any]:
     """
-    Stock Query Logs app logs ALL queries. When log_allowed=False (default),
-    keep only blocked/dropped rows via SQLite trigger + purge.
+    Stock Query Logs app logs ALL queries.
+
+    log_allowed=True  → keep everything (drop legacy blocked-only trigger).
+    log_allowed=False → keep blocked/dropped + elevated-risk allowed (purge ok allowed).
     """
     path = querylogs_db_path()
     if not path.is_file():
@@ -47,33 +138,20 @@ def apply_log_allowed_mode(*, log_allowed: bool) -> dict[str, Any]:
 
     import sqlite3
 
-    keep = ",".join(str(x) for x in _BLOCKED_RESPONSE_TYPE_IDS)
     deleted = 0
+    purge_info: dict[str, Any] = {}
     try:
         conn = sqlite3.connect(str(path), timeout=5.0)
         try:
             conn.execute("PRAGMA busy_timeout=5000")
-            if log_allowed:
-                conn.execute(f'DROP TRIGGER IF EXISTS "{_TRIGGER_NAME}"')
-            else:
-                conn.execute(f'DROP TRIGGER IF EXISTS "{_TRIGGER_NAME}"')
-                conn.execute(
-                    f"""
-                    CREATE TRIGGER "{_TRIGGER_NAME}"
-                    AFTER INSERT ON dns_logs
-                    WHEN NEW.response_type NOT IN ({keep})
-                    BEGIN
-                      DELETE FROM dns_logs WHERE dlid = NEW.dlid;
-                    END
-                    """
-                )
-                cur = conn.execute(
-                    f"DELETE FROM dns_logs WHERE response_type NOT IN ({keep})"
-                )
-                deleted = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+            # legacy trigger deleted all non-blocked — kills risk rows; never recreate
+            conn.execute(f'DROP TRIGGER IF EXISTS "{_TRIGGER_NAME}"')
             conn.commit()
         finally:
             conn.close()
+        if not log_allowed:
+            purge_info = purge_allowed_low_risk()
+            deleted = int(purge_info.get("purged") or 0)
     except sqlite3.Error as exc:
         return {
             "applied": False,
@@ -86,7 +164,8 @@ def apply_log_allowed_mode(*, log_allowed: bool) -> dict[str, Any]:
         "path": str(path),
         "logAllowedQueries": log_allowed,
         "purgedNonBlocked": deleted,
-        "mode": "all" if log_allowed else "blocked-only",
+        "purge": purge_info,
+        "mode": "all" if log_allowed else "blocked+risk",
     }
 
 

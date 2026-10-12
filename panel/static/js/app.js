@@ -1441,7 +1441,7 @@
     let totalEntries = 0;
     let logAllowed = false;
     // только после Apply — не при наборе текста
-    // старт UI: Any type / Any protocol (как в тулбаре); если Log allowed off — syncForced → Blocked
+    // старт: type="" → Blocked+risk (log allowed off) или Any (on)
     const applied = {
       qname: "",
       clientIp: "",
@@ -1454,13 +1454,13 @@
       <input type="search" class="filter-input" id="logQname" placeholder="Domain contains…" />
       <input type="search" class="filter-input filter-input-sm" id="logClient" placeholder="Client IP…" />
       <select id="logType" class="toolbar-select" title="Response type">
+        <option value="" id="logTypeAny">Blocked + risk</option>
         <option value="Blocked">Blocked</option>
         <option value="UpstreamBlocked">Upstream blocked</option>
         <option value="CacheBlocked">Cache blocked</option>
         <option value="Cached" data-allowed-only="1">Cached</option>
         <option value="Recursive" data-allowed-only="1">Recursive</option>
         <option value="Authoritative" data-allowed-only="1">Authoritative</option>
-        <option value="" data-allowed-only="1">Any type</option>
       </select>
       <select id="logProto" class="toolbar-select" title="Protocol">
         <option value="">Any protocol</option>
@@ -1475,7 +1475,7 @@
       <button type="button" class="btn" id="btnLogApply">Apply</button>
       <button type="button" class="btn btn-secondary" id="btnLogClear">Clear</button>
       <div class="toolbar-spacer"></div>
-      <label class="inline toolbar-check" title="Off = store only blocked/dropped in DB">
+      <label class="inline toolbar-check" title="Off = store blocked/dropped + elevated risk (not all allowed)">
         <input type="checkbox" id="logAllowedToggle" /> Log allowed
       </label>
       <button type="button" class="btn btn-secondary" id="btnLogPrev">←</button>
@@ -1495,11 +1495,16 @@
         opt.disabled = !logAllowed;
         opt.hidden = !logAllowed;
       });
+      const anyOpt = document.getElementById("logTypeAny");
+      if (anyOpt) {
+        anyOpt.textContent = logAllowed ? "Any type" : "Blocked + risk";
+      }
       if (!logAllowed) {
         const v = typeSel.value;
-        if (!v || !/Blocked/i.test(v)) {
-          typeSel.value = "Blocked";
-          applied.responseType = "Blocked";
+        // разрешены: пусто (blocked+risk) и *Blocked*
+        if (v && !/Blocked/i.test(v)) {
+          typeSel.value = "";
+          applied.responseType = "";
         }
       }
       allowedToggle.checked = !!logAllowed;
@@ -1519,6 +1524,9 @@
       document.getElementById("logQname").value = f.qname || "";
       document.getElementById("logClient").value = f.clientIp || "";
       typeSel.value = f.responseType == null ? "" : f.responseType;
+      if (typeSel.value !== (f.responseType || "") && f.responseType && !/Blocked/i.test(f.responseType) && !logAllowed) {
+        typeSel.value = "";
+      }
       protoSel.value = f.protocol || "";
       susOnly.checked = !!f.suspiciousOnly;
     }
@@ -1551,9 +1559,9 @@
           totalEntries === 0
             ? (logAllowed
               ? "Nothing matched. Widen filters or Apply after Clear."
-              : "Only blocked queries are stored. Turn on «Log allowed» to record the rest.")
+              : "DB keeps blocked + elevated risk. Turn on «Log allowed» to record all queries.")
             : (applied.suspiciousOnly
-              ? "No suspicious rows on this fetch. Try «Log allowed» + Any type, or next page."
+              ? "No suspicious rows on this fetch. Try next page or widen filters."
               : "Nothing on this page.")
         }</span></div>`;
         return;
@@ -1689,7 +1697,7 @@
     function clearFilters() {
       applied.qname = "";
       applied.clientIp = "";
-      applied.responseType = logAllowed ? "" : "Blocked";
+      applied.responseType = "";
       applied.protocol = "";
       applied.suspiciousOnly = false;
       writeDraft(applied);
@@ -1703,12 +1711,16 @@
       try {
         const r = await DnsApi.saveUiPrefs({ logAllowedQueries: want });
         logAllowed = !!r.logAllowedQueries;
+        if (!logAllowed && applied.responseType && !/Blocked/i.test(applied.responseType)) {
+          applied.responseType = "";
+        }
         syncAllowedTypeOptions();
+        writeDraft(applied);
         const purged = r.logFilter && r.logFilter.purgedNonBlocked;
         toast(
           logAllowed
             ? "Logging all DNS queries"
-            : `Blocked-only logging${purged ? ` · purged ${purged} allowed` : ""}`
+            : `Blocked + risk logging${purged ? ` · purged ${purged} low-risk` : ""}`
         );
         page = 1;
         await loadLog();
@@ -1735,7 +1747,7 @@
     document.getElementById("btnLogNext").addEventListener("click", () => {
       if (page < totalPages) { page += 1; loadLog(); }
     });
-    // не звать syncAllowedTypeOptions до ответа API: logAllowed ещё false → насильно Blocked
+    // syncAllowedTypeOptions после ответа API (logAllowed из prefs)
     writeDraft(applied);
     await loadLog();
   }
