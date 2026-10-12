@@ -1559,7 +1559,7 @@
           totalEntries === 0
             ? (logAllowed
               ? "Nothing matched. Widen filters or Apply after Clear."
-              : "DB keeps blocked + elevated risk. Turn on «Log allowed» to record all queries.")
+              : "No blocked or elevated-risk queries yet. «Log allowed» records all traffic.")
             : (applied.suspiciousOnly
               ? "No suspicious rows on this fetch. Try next page or widen filters."
               : "Nothing on this page.")
@@ -1843,7 +1843,7 @@
                 <div class="proto-main">
                   <label>Estimate</label>
                   <div class="cert-status is-set" id="uiLogEst">${escapeHtml(estLabel)}</div>
-                  <div class="hint">«Log allowed» off still keeps only blocked in DB; this cap is the hard ceiling.</div>
+                  <div class="hint">«Log allowed» off keeps blocked + elevated risk in DB; this cap is the hard ceiling.</div>
                 </div>
               </div>
             </div>
