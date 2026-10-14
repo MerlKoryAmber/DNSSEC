@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict
 
@@ -11,6 +12,7 @@ from .config import settings
 from .technitium import TechnitiumClient, TechnitiumError
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+log = logging.getLogger(__name__)
 
 # Failed logins per client IP (in-memory; resets on panel restart).
 _LOGIN_FAILS: dict[str, list[float]] = defaultdict(list)
@@ -31,9 +33,18 @@ def _request_is_https(request: Request) -> bool:
 
 
 def _client_ip(request: Request) -> str:
-    xf = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-    if xf:
-        return xf
+    """IP for login rate-limit.
+
+    Do not trust the first X-Forwarded-For hop (client can spoof it; nginx
+    *appends* the real peer). Prefer X-Real-IP ($remote_addr from nginx), then
+    the last XFF hop, then ASGI client host.
+    """
+    xr = (request.headers.get("x-real-ip") or "").strip()
+    if xr:
+        return xr
+    parts = [p.strip() for p in (request.headers.get("x-forwarded-for") or "").split(",") if p.strip()]
+    if parts:
+        return parts[-1]
     if request.client and request.client.host:
         return request.client.host
     return "unknown"
@@ -129,7 +140,7 @@ async def login(body: LoginBody, request: Request, response: Response):
 
         await blocky_glue.ensure_technitium_points_at_blocky(TechnitiumClient(token=token))
     except Exception:
-        pass
+        log.exception("blocky glue after login failed (Technitium→Blocky forwarder)")
     return {
         "username": data.get("username"),
         "displayName": data.get("displayName"),

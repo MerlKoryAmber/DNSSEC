@@ -62,6 +62,56 @@ def querylogs_db_path() -> Path:
     return cfg / "apps" / QUERY_LOGS_APP_NAME / "querylogs.db"
 
 
+# Purge ok-allowed only when DB is this full vs maxLogRecords (Merl: не по таймеру).
+PURGE_FILL_RATIO = 0.75
+
+
+def querylogs_row_count() -> int | None:
+    path = querylogs_db_path()
+    if not path.is_file():
+        return None
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(str(path), timeout=5.0)
+        try:
+            conn.execute("PRAGMA busy_timeout=5000")
+            row = conn.execute("SELECT COUNT(*) FROM dns_logs").fetchone()
+            return int(row[0]) if row else 0
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+
+
+def maybe_purge_allowed_low_risk(*, fill_ratio: float = PURGE_FILL_RATIO) -> dict[str, Any]:
+    """Run blocked+risk purge only when row count ≥ fill_ratio × maxLogRecords."""
+    from . import ui_prefs
+
+    cap = max(1, int(ui_prefs.read_max_log_records()))
+    n = querylogs_row_count()
+    if n is None:
+        return {"skipped": True, "reason": "db-missing", "rows": None, "cap": cap}
+    fill = float(n) / float(cap)
+    threshold = float(fill_ratio)
+    if fill < threshold:
+        return {
+            "skipped": True,
+            "reason": "below-threshold",
+            "rows": n,
+            "cap": cap,
+            "fill": round(fill, 4),
+            "threshold": threshold,
+        }
+    info = purge_allowed_low_risk()
+    info["skipped"] = False
+    info["rowsBefore"] = n
+    info["cap"] = cap
+    info["fillBefore"] = round(fill, 4)
+    info["threshold"] = threshold
+    return info
+
+
 def purge_allowed_low_risk(
     *,
     batch: int = 2000,

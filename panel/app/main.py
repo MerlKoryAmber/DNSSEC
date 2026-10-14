@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from .auth import router as auth_router
 from .routes import router as dns_router
+
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -18,7 +21,7 @@ async def lifespan(_app: FastAPI):
         panel_tls.ensure_self_signed()
         panel_tls.ensure_http_conf()
     except Exception:
-        pass
+        log.exception("panel lifespan bootstrap failed (session secret / TLS / http.conf)")
     yield
 
 

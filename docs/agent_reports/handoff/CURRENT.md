@@ -9,8 +9,8 @@
 
 **РЕАЛИЗОВАНО НО НЕ ПРИНЯТО** · lab выкладка suspicion/auto-block (локально, без commit)
 
-Lab **`172.29.110.165`**: `/opt/dns`. Сосед **2fa_*** — не трогали.
-`DNS_BIND_IP=172.29.110.165`.
+Lab **`172.22.86.236`**: `/opt/dns`. Сосед **2fa_*** — не трогали.
+`DNS_BIND_IP=172.22.86.236`.
 
 Smoke: UI :9080 200 · Settings → **Suspicion** · `GET/PUT /api/settings/suspicion`
 · prefs в `config/panel/ui.yml` → `suspicion:` · score high+entropy OK ·
@@ -24,11 +24,11 @@ autoBlock default **off** · dig noise `*.dga-lab.example` в лог.
 
 | | |
 |--|--|
-| Хост | `172.29.110.165` (el9 / CentOS Stream 9-совместимое) |
-| SSH | `root@172.29.110.165` (пароль **не в git** — у Merl) |
+| Хост | `172.22.86.236` (el9 / CentOS Stream 9-совместимое) |
+| SSH | `root@172.22.86.236` (пароль **не в git** — у Merl) |
 | Каталог DNS | `/opt/dns` (пока пусто; `/opt` без проектов dns) |
 | Docker | **нет** (есть **podman** у соседа) — `install.sh` поставит Docker CE |
-| UI (после install) | http://172.29.110.165:9080/ · https://…:9443/ |
+| UI (после install) | http://172.22.86.236:9080/ · https://…:9443/ |
 
 ### Сосед (НЕ УБИВАТЬ)
 
@@ -81,7 +81,7 @@ Podman compose **2fa_***:
 
 ## Открытое
 
-- [ ] Первый install на `172.29.110.165` (не трогая 2fa)
+- [ ] Первый install на `172.22.86.236` (не трогая 2fa)
 - [ ] Smoke UI/DNS/DoH; приёмка человеком
 - [ ] Если forwarders сбрасывались на старом хосте до `4d931c1` — здесь чистый старт
 

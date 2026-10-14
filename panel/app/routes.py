@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Any, Optional
@@ -11,6 +12,7 @@ from .auth import get_client
 from .technitium import TechnitiumClient, TechnitiumError
 
 router = APIRouter(prefix="/api", tags=["dns"])
+log = logging.getLogger(__name__)
 
 
 def _map_error(exc: TechnitiumError) -> HTTPException:
@@ -907,12 +909,12 @@ async def get_blocking_log(
     from . import ui_prefs
 
     log_allowed = ui_prefs.read_log_allowed_queries()
-    # disk mode: без Log allowed — вычищаем ok-allowed, оставляем blocked + risk
+    # disk mode: purge ok-allowed только при наполнении ≥75% maxLogRecords (не на каждый GET)
     if not log_allowed:
         try:
-            ql.purge_allowed_low_risk()
+            ql.maybe_purge_allowed_low_risk()
         except Exception:
-            pass
+            log.exception("query log purge failed")
 
     # When filtering suspicious / blocked+risk in-process, pull a wider page then trim.
     want = min(max(1, perPage), 200)

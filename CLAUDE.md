@@ -175,7 +175,7 @@ Lab-деплой в `/opt/dns` (scp + при необходимости `docker 
 - **Карта кода:** `docs/CODEMAP.md`
 - **Владелец:** Merl
 - **Стек:** Technitium (лицо) + Blocky (upstreams) + FastAPI panel + JS UI + nginx; Docker Compose; CentOS/el9 lab
-- **Lab:** `172.29.110.165`, каталог `/opt/dns`. Сосед podman **2fa_*** (:80/:443/:8000/:8030/:1812) — не трогать. Чужой UI Technitium (:5380) наружу не отдавать.
+- **Lab:** `172.22.86.236`, каталог `/opt/dns`. Сосед podman **2fa_*** (:80/:443/:8000/:8030/:1812) — не трогать. Чужой UI Technitium (:5380) наружу не отдавать.
 - **Не трогать без команды:** push, force-push, `git add .`, рестарт чужих сервисов, чужие `/opt/*`, `podman stop` 2fa_*
 - **Секреты:** пароли lab (SSH/root), `.env`, токены Technitium — не в git
 - **ADR:** `docs/adr/`. Отчёты: `docs/agent_reports/`
