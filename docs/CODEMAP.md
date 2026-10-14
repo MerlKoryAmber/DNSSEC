@@ -18,7 +18,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 
 ## UI
 
-**Dashboard** · Zones · Forwarders · Client protocol · Blocking · Query log · **Settings** (General · Blocking · Panel TLS cert)
+**Dashboard** · Zones · Forwarders · Client protocol · Blocking · Query log · **Settings** (General · Cache · Blocking · Suspicion · Panel TLS)
 
 ## API (кратко)
 
@@ -30,6 +30,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 | `/api/zones*`, `/api/settings*` | Technitium |
 | `/api/settings/panel-tls` | nginx PEM (порты — CLI) |
 | `/api/settings/ui` | timezone, log budget |
+| `/api/settings/cache` | Technitium `cacheMaximumEntries` / `saveCache`; `POST …/flush` |
 | `/api/settings/suspicion` | auto-block + heuristics thresholds (`ui.yml` → `suspicion:`) |
 
 ## update keep-data — preserve

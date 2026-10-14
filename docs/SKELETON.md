@@ -172,7 +172,7 @@
 | Client protocol | `routes.py` settings | `app.js` `#/client-protocol` | Technitium |
 | Blocking | `routes.py` `/api/blocking*` + `blocklist_store.py` | `app.js` `#/blocking` | Lists / Allowed / Blocked |
 | Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` + `dns_suspicion.py` + `blocky_querylog.py` | `app.js` `#/query-log` | Technitium rows + Risk; **Upstream** из Blocky CSV (`responseReason`) |
-| Settings | `routes.py` + `panel_tls.py` + `dns_suspicion.py` | `#/settings` · General · Blocking · Suspicion · Panel TLS; порты — CLI | Suspicion: auto-block + пороги |
+| Settings | `routes.py` + `panel_tls.py` + `dns_suspicion.py` | `#/settings` · General · **Cache** · Blocking · Suspicion · Panel TLS; порты — CLI | Cache: max entries / save / flush; Suspicion |
 | Panel listen ports | `dns.sh` `ports` (+ `panel_tls.write_listen_settings`) | — | `.env` / `ui.yml` / `http.conf` |
 | Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` | `app.js` `#/dashboard` | Technitium stats + CPU/RAM + services |
 
@@ -190,6 +190,7 @@
 - Zones: `GET/POST /zones`, `DELETE /zones/{name}`
 - Records: `GET/POST/PUT/DELETE /zones/{name}/records`
 - Settings (Technitium, **не** список Forwarders UI): `GET/PUT /settings`,
+  `GET/PUT /settings/cache`, `POST /settings/cache/flush`,
   `POST /settings/dns-tls-cert` (.pfx), `POST /settings/dns-tls-pem` (key+chain → pfx)
   `GET/POST /settings/panel-tls` (PEM key+cert → nginx HTTPS, HUP)
   Listen ports — **только CLI** `sudo dns ports` (не API)
@@ -207,7 +208,7 @@
 3. `blocky-watch` рестартит Blocky по изменению файла
 
 ### UI hash-маршруты
-`#/login` · `#/dashboard` · `#/zones` · `#/forwarders` · `#/client-protocol` · `#/blocking` · `#/query-log` · `#/settings` · `#/settings/blocking` · `#/settings/panel-tls`
+`#/login` · `#/dashboard` · `#/zones` · `#/forwarders` · `#/client-protocol` · `#/blocking` · `#/query-log` · `#/settings` · `#/settings/cache` · `#/settings/blocking` · `#/settings/panel-tls`
 
 ---
 

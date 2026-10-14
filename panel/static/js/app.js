@@ -1753,10 +1753,11 @@
   }
 
   async function viewSettings(initialTab) {
-    const tab = ["general", "blocking", "suspicion", "panel-tls"].includes(initialTab) ? initialTab : "general";
+    const tab = ["general", "cache", "blocking", "suspicion", "panel-tls"].includes(initialTab) ? initialTab : "general";
     shell("Settings", `
       <div class="subnav">
         <button type="button" class="subnav-item ${tab === "general" ? "active" : ""}" data-stab="general">General</button>
+        <button type="button" class="subnav-item ${tab === "cache" ? "active" : ""}" data-stab="cache">Cache</button>
         <button type="button" class="subnav-item ${tab === "blocking" ? "active" : ""}" data-stab="blocking">Blocking</button>
         <button type="button" class="subnav-item ${tab === "suspicion" ? "active" : ""}" data-stab="suspicion">Suspicion</button>
         <button type="button" class="subnav-item ${tab === "panel-tls" ? "active" : ""}" data-stab="panel-tls">Panel TLS</button>
@@ -1889,6 +1890,86 @@
           } catch (ex) {
             toast(ex.message, "error");
             btn.disabled = false;
+          }
+        });
+      } catch (ex) {
+        inner.innerHTML = `<div class="empty"><strong>Failed to load</strong><span>${escapeHtml(ex.message)}</span></div>`;
+      }
+      return;
+    }
+
+    if (tab === "cache") {
+      extra.innerHTML = `
+        <button type="button" class="btn btn-secondary" id="btnFlushCache">Flush cache</button>
+        <button type="button" class="btn" id="btnSaveCache">Save</button>
+      `;
+      try {
+        const data = await DnsApi.cacheSettings();
+        const s = data.response || data || {};
+        const maxEnt = Number(s.cacheMaximumEntries);
+        const maxVal = Number.isFinite(maxEnt) && maxEnt > 0 ? maxEnt : 10000;
+        const fill = s.cachedEntries;
+        const fillLabel = fill == null || fill === "" ? "—" : fmtNum(fill);
+        inner.innerHTML = `
+          <div class="form-card">
+            <p class="section-title">DNS resolver cache</p>
+            <div class="proto-list">
+              <div class="proto-row">
+                <div class="proto-main">
+                  <label>Cache entries now</label>
+                  <div class="cert-status is-set" id="cacheFillNow">${escapeHtml(String(fillLabel))}${
+                    Number.isFinite(maxEnt) ? ` / ${fmtNum(maxEnt)}` : ""
+                  }</div>
+                  <div class="hint">From Technitium dashboard. Round max usually means the cache is full.</div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label for="cacheMaxEntries">Maximum entries</label>
+                    <input type="number" id="cacheMaxEntries" min="1000" max="10000000" step="1000" value="${maxVal}" />
+                    <div class="hint">Technitium default 10 000 — often low for production. Raise if dashboard sits at the cap (watch RAM).</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proto-row">
+                <div class="proto-main">
+                  <label class="inline"><input type="checkbox" id="cacheSave" ${s.saveCache ? "checked" : ""} /> Save cache to disk</label>
+                  <div class="hint">Reload cache after restart. Recommended on.</div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        document.getElementById("btnSaveCache").addEventListener("click", async () => {
+          const btn = document.getElementById("btnSaveCache");
+          btn.disabled = true;
+          try {
+            const n = Number(document.getElementById("cacheMaxEntries").value);
+            if (!Number.isFinite(n) || n < 1000) throw new Error("Maximum entries must be ≥ 1000");
+            await DnsApi.saveCacheSettings({
+              cacheMaximumEntries: Math.floor(n),
+              saveCache: !!document.getElementById("cacheSave").checked,
+            });
+            toast("Cache settings saved");
+            await viewSettings("cache");
+          } catch (ex) {
+            toast(ex.message, "error");
+            btn.disabled = false;
+          }
+        });
+        document.getElementById("btnFlushCache").addEventListener("click", async () => {
+          const ok = await confirmModal({
+            title: "Flush DNS cache",
+            text: "Clear all resolver cache entries? Short spike in upstream lookups until the cache refills.",
+            dangerLabel: "Flush",
+          });
+          if (!ok) return;
+          try {
+            await DnsApi.flushDnsCache();
+            toast("Cache flushed");
+            await viewSettings("cache");
+          } catch (ex) {
+            toast(ex.message, "error");
           }
         });
       } catch (ex) {

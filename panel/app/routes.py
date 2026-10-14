@@ -351,6 +351,63 @@ async def put_suspicion_prefs(
     return {"status": "ok", "prefs": prefs, "defaults": dict(dns_suspicion.DEFAULTS)}
 
 
+_CACHE_SETTING_KEYS = ("cacheMaximumEntries", "saveCache")
+
+
+class CacheSettingsBody(BaseModel):
+    cacheMaximumEntries: int | None = Field(default=None, ge=1000, le=10_000_000)
+    saveCache: bool | None = None
+
+
+@router.get("/settings/cache")
+async def get_cache_settings(client: TechnitiumClient = Depends(get_client)):
+    """Technitium DNS cache (max entries / save to disk) + current fill."""
+    try:
+        raw = await client.settings_get()
+    except TechnitiumError as exc:
+        raise _map_error(exc) from exc
+    resp = raw.get("response") or raw
+    view: dict[str, Any] = {k: resp.get(k) for k in _CACHE_SETTING_KEYS}
+    try:
+        st = await client.dashboard_stats("LastHour")
+        sresp = st.get("response") or st
+        stats = sresp.get("stats") if isinstance(sresp.get("stats"), dict) else {}
+        view["cachedEntries"] = stats.get("cachedEntries")
+    except TechnitiumError:
+        view["cachedEntries"] = None
+    return {"response": view}
+
+
+@router.put("/settings/cache")
+async def put_cache_settings(body: CacheSettingsBody, client: TechnitiumClient = Depends(get_client)):
+    data = body.model_dump(exclude_none=True)
+    if not data:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    params: dict[str, Any] = {}
+    for key, val in data.items():
+        if isinstance(val, bool):
+            params[key] = str(val).lower()
+        else:
+            params[key] = val
+    try:
+        await client.settings_set(params)
+        fresh = await client.settings_get()
+    except TechnitiumError as exc:
+        raise _map_error(exc) from exc
+    resp = fresh.get("response") or fresh
+    return {"status": "ok", "response": {k: resp.get(k) for k in _CACHE_SETTING_KEYS}}
+
+
+@router.post("/settings/cache/flush")
+async def flush_dns_cache(client: TechnitiumClient = Depends(get_client)):
+    """Clear entire Technitium resolver cache."""
+    try:
+        await client.cache_flush()
+    except TechnitiumError as exc:
+        raise _map_error(exc) from exc
+    return {"ok": True}
+
+
 @router.put("/settings/ui")
 async def put_ui_prefs(body: UiPrefsBody, _client: TechnitiumClient = Depends(get_client)):
     from . import query_logs as ql

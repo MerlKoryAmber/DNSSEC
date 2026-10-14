@@ -123,6 +123,9 @@ class TechnitiumClient:
     async def settings_set(self, params: dict[str, Any]) -> dict:
         return await self._request("GET", "/api/settings/set", params)
 
+    async def cache_flush(self) -> dict:
+        return await self._request("GET", "/api/cache/flush")
+
     async def dns_resolve(
         self,
         server: str,
