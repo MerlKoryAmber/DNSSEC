@@ -194,6 +194,12 @@ services:
       - dns_net
 
 networks:
+  # Fixed subnet: Blocky ipv4_address 172.18.0.100 (DNS_BLOCKY_IP) must stay in-range
+  # even if Docker's default bridge pool drifts on the host.
   dns_net:
     name: dns_net
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+          gateway: 172.18.0.1

@@ -74,7 +74,8 @@
 | `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock |
 | `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:443; `resolver 127.0.0.11` + variable `proxy_pass` (без stale IP/502); TLS `config/nginx/ssl` |
 
-Сеть: `dns_net`. Blocky **не** публиковать на host :53.
+Сеть: `dns_net` (IPAM `172.18.0.0/16`, gateway `.1`) — под fixed Blocky
+`172.18.0.100`. Blocky **не** публиковать на host :53.
 
 **Прокси (корп-хост — интернет только через proxy):**
 - **Источники:** env → `/etc/environment` → `docker.service.d/*.conf` → `proxy=` в
