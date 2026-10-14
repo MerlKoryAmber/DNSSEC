@@ -44,7 +44,13 @@ class TechnitiumClient:
                 except Exception as exc:
                     raise TechnitiumError(f"Некорректный ответ Technitium HTTP {r.status_code}") from exc
         except httpx.TimeoutException as exc:
-            raise TechnitiumError(f"Technitium timeout ({path})") from exc
+            raise TechnitiumError(f"Technitium timeout ({path})", status="unreachable") from exc
+        except httpx.RequestError as exc:
+            # ConnectError / Name or service not known → не 500 ASGI, а понятный 502
+            raise TechnitiumError(
+                f"Technitium unreachable ({path}): {exc}",
+                status="unreachable",
+            ) from exc
         status = data.get("status")
         if status == "ok":
             return data

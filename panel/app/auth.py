@@ -126,6 +126,8 @@ async def login(body: LoginBody, request: Request, response: Response):
     try:
         data = await client.login(body.user, body.password)
     except TechnitiumError as exc:
+        if getattr(exc, "status", None) == "unreachable":
+            raise HTTPException(status_code=502, detail=exc.message) from exc
         _record_login_fail(ip)
         raise HTTPException(status_code=401, detail=exc.message) from exc
     token = data.get("token")

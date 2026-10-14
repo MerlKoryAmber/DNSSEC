@@ -76,6 +76,9 @@
 
 Сеть: `dns_net` (IPAM `172.18.0.0/16`, gateway `.1`) — под fixed Blocky
 `172.18.0.100`. Blocky **не** публиковать на host :53.
+`update.sh`: после `compose up` проверяет `getent hosts technitium` из panel;
+если mesh мёртв — `compose down` + `network rm dns_net` + `up` (IPAM in-place
+не обновляется; иначе login → ConnectError).
 
 **Прокси (корп-хост — интернет только через proxy):**
 - **Источники:** env → `/etc/environment` → `docker.service.d/*.conf` → `proxy=` в

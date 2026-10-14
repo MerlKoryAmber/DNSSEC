@@ -256,8 +256,36 @@ export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${N
 
 echo "[4/4] docker compose up --build…"
 cd "$DNS_DIR"
-docker compose -p "$COMPOSE_PROJECT" up -d --build
-sleep 5
+
+# dns_net IPAM (compose) cannot be patched in place on an existing named network.
+# Partial recreate (e.g. only panel) then leaves panel unable to resolve
+# hostname «technitium» → login 500 ConnectError. Heal inside update only.
+dns_compose_up() {
+  docker compose -p "$COMPOSE_PROJECT" up -d --build
+}
+
+dns_mesh_ok() {
+  # panel must resolve Technitium service name on dns_net
+  docker exec dns-panel getent hosts technitium >/dev/null 2>&1 \
+    || docker compose -p "$COMPOSE_PROJECT" exec -T panel getent hosts technitium >/dev/null 2>&1
+}
+
+dns_compose_up
+sleep 3
+if ! dns_mesh_ok; then
+  echo -e "${yellow}WARN:${plain} panel cannot resolve «technitium» — recreating dns_net + stack…"
+  docker compose -p "$COMPOSE_PROJECT" down
+  docker network rm dns_net 2>/dev/null || true
+  dns_compose_up
+  sleep 5
+  if ! dns_mesh_ok; then
+    echo -e "${red}ERROR:${plain} dns mesh still broken (panel→technitium). Check: docker exec dns-panel getent hosts technitium" >&2
+    exit 1
+  fi
+  echo "dns mesh OK after network recreate"
+fi
+
+sleep 2
 docker restart dns-nginx 2>/dev/null || true
 # wait Technitium briefly
 for i in $(seq 1 30); do
