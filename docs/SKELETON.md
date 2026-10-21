@@ -178,7 +178,7 @@
 | Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` + `dns_suspicion.py` + `blocky_querylog.py` | `app.js` `#/query-log` | Technitium rows + Risk; **Upstream** из Blocky CSV (`responseReason`) |
 | Settings | `routes.py` + `panel_tls.py` + `dns_suspicion.py` | `#/settings` · General (timezone, **Theme**, log budget) · **Cache** · Blocking · Suspicion · Panel TLS; порты — CLI | Theme: localStorage `mk.theme:<user>`; Cache / Suspicion |
 | Panel listen ports | `dns.sh` `ports` (+ `panel_tls.write_listen_settings`) | — | `.env` / `ui.yml` / `http.conf` |
-| Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` | `app.js` `#/dashboard` | Technitium stats + CPU/RAM + services |
+| Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` + `query_logs.count_distinct_clients_since` | `app.js` `#/dashboard` · Tiles (`mk.dash.widgets`) | Technitium stats + CPU/RAM + services; Clients: max(Technitium, querylogs DISTINCT) при truncate 100/1000; скролл без backdrop-filter |
 
 ---
 

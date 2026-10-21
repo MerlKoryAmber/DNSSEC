@@ -26,7 +26,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 
 | Путь | Данные |
 |------|--------|
-| `/api/dashboard` | Technitium stats + hybrid strip |
+| `/api/dashboard` | Technitium stats + hybrid strip; Clients обогащается DISTINCT из querylogs при truncate-cap |
 | `/api/blocking*` | Blocking + lists (`blockListZones`) + Allowed/Blocked + Log (`logAllowed` off → purge ok при ≥75% maxLogRecords; `suspicion`) |
 | `/api/forwarders*` | Blocky YAML (`config/blocky/config.yml`) |
 | `/api/zones*`, `/api/settings*` | Technitium |

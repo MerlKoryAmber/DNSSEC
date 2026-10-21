@@ -628,9 +628,47 @@
     }).join("")}</div>`;
   }
 
+  const DASH_WIDGET_DEFS = [
+    { id: "status", label: "Status" },
+    { id: "kpiQueries", label: "Queries" },
+    { id: "kpiCached", label: "Cached" },
+    { id: "kpiBlocked", label: "Blocked" },
+    { id: "kpiClients", label: "Clients" },
+    { id: "kpiZones", label: "Zones" },
+    { id: "kpiCacheEntries", label: "Cache entries" },
+    { id: "chart", label: "Queries over time" },
+    { id: "results", label: "Result codes" },
+    { id: "lists", label: "Lists" },
+    { id: "cpu", label: "CPU / RAM" },
+    { id: "services", label: "Services" },
+    { id: "tops", label: "Top lists" },
+  ];
+  const DASH_WIDGETS_KEY = "mk.dash.widgets";
+
+  function loadDashWidgets() {
+    const out = {};
+    DASH_WIDGET_DEFS.forEach((w) => { out[w.id] = true; });
+    try {
+      const raw = JSON.parse(localStorage.getItem(DASH_WIDGETS_KEY) || "{}");
+      if (raw && typeof raw === "object") {
+        DASH_WIDGET_DEFS.forEach((w) => {
+          if (typeof raw[w.id] === "boolean") out[w.id] = raw[w.id];
+        });
+      }
+    } catch { /* private mode / bad JSON */ }
+    return out;
+  }
+
+  function saveDashWidgets(map) {
+    try {
+      localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(map));
+    } catch { /* ignore */ }
+  }
+
   async function viewDashboard(initialType) {
     const allowed = ["LastHour", "LastDay", "LastWeek", "LastMonth", "LastYear"];
     let period = allowed.includes(initialType) ? initialType : "LastHour";
+    let widgets = loadDashWidgets();
 
     shell("Dashboard", `
       <label class="dash-period-label" for="dashPeriod">Period</label>
@@ -642,11 +680,41 @@
         <option value="LastYear">Last year</option>
       </select>
       <div class="toolbar-spacer"></div>
+      <button type="button" class="btn btn-secondary" id="btnDashLayout">Tiles</button>
       <button type="button" class="btn btn-secondary" id="btnDashRefresh">Refresh</button>
     `, `<div class="form-panel dash-panel" id="dashBox"><div class="empty">Loading…</div></div>`, "dashboard");
 
     const sel = document.getElementById("dashPeriod");
     sel.value = period;
+
+    function on(id) {
+      return widgets[id] !== false;
+    }
+
+    function layoutPanelHtml() {
+      return `<div class="dash-layout-panel" id="dashLayoutPanel" role="group" aria-label="Dashboard tiles">
+        ${DASH_WIDGET_DEFS.map((w) => `
+          <label><input type="checkbox" data-dash-w="${escapeHtml(w.id)}" ${on(w.id) ? "checked" : ""}/> ${escapeHtml(w.label)}</label>
+        `).join("")}
+        <button type="button" class="btn btn-sm btn-secondary" id="btnDashLayoutReset">Reset</button>
+      </div>`;
+    }
+
+    function clientsKpi(st) {
+      const hintParts = [];
+      if (st.totalClientsSource === "querylogs") {
+        hintParts.push("from query log");
+        if (st.totalClientsTechnitium != null && Number(st.totalClientsTechnitium) !== Number(st.totalClients)) {
+          hintParts.push(`Technitium ${fmtNum(st.totalClientsTechnitium)}`);
+        }
+      } else if (st.totalClientsMayBeTruncated) {
+        hintParts.push("may be capped by Technitium stats");
+      }
+      const hint = hintParts.length
+        ? `<div class="dash-kpi-hint">${escapeHtml(hintParts.join(" · "))}</div>`
+        : "";
+      return `<div class="dash-kpi"><div class="dash-kpi-label">Clients</div><div class="dash-kpi-val">${fmtNum(st.totalClients)}</div>${hint}</div>`;
+    }
 
     async function load() {
       const box = document.getElementById("dashBox");
@@ -668,43 +736,33 @@
             })()
           : null;
 
-        box.innerHTML = `
-          <div class="dash-status">
-            <span class="dash-pill ${hy.enableBlocking ? "is-on" : "is-off"}">Blocking ${hy.enableBlocking ? "on" : "off"}</span>
-            <span class="dash-pill">Forwarders ${fmtNum(hy.forwarderCount)}</span>
-            <span class="dash-pill ${hy.enableDnsOverTls ? "is-on" : ""}">DoT ${hy.enableDnsOverTls ? "on" : "off"}${hy.dnsOverTlsPort ? " :" + hy.dnsOverTlsPort : ""}</span>
-            <span class="dash-pill ${hy.enableDnsOverHttps ? "is-on" : ""}">DoH ${hy.enableDnsOverHttps ? "on" : "off"}${hy.dnsOverHttpsPort ? " :" + hy.dnsOverHttpsPort : ""}</span>
-            ${uptime != null ? `<span class="dash-pill muted">Uptime ${escapeHtml(uptime)}</span>` : ""}
-          </div>
+        const kpiBits = [
+          on("kpiQueries") ? `<div class="dash-kpi"><div class="dash-kpi-label">Queries</div><div class="dash-kpi-val">${fmtNum(st.totalQueries)}</div></div>` : "",
+          on("kpiCached") ? `<div class="dash-kpi"><div class="dash-kpi-label">Cached</div><div class="dash-kpi-val">${fmtNum(st.totalCached)}</div></div>` : "",
+          on("kpiBlocked") ? `<div class="dash-kpi"><div class="dash-kpi-label">Blocked</div><div class="dash-kpi-val">${fmtNum(st.totalBlocked)}</div></div>` : "",
+          on("kpiClients") ? clientsKpi(st) : "",
+          on("kpiZones") ? `<div class="dash-kpi"><div class="dash-kpi-label">Zones</div><div class="dash-kpi-val">${fmtNum(st.zones)}</div></div>` : "",
+          on("kpiCacheEntries") ? `<div class="dash-kpi"><div class="dash-kpi-label">Cache entries</div><div class="dash-kpi-val">${fmtNum(st.cachedEntries)}</div></div>` : "",
+        ].filter(Boolean).join("");
 
-          <div class="dash-kpis">
-            <div class="dash-kpi"><div class="dash-kpi-label">Queries</div><div class="dash-kpi-val">${fmtNum(st.totalQueries)}</div></div>
-            <div class="dash-kpi"><div class="dash-kpi-label">Cached</div><div class="dash-kpi-val">${fmtNum(st.totalCached)}</div></div>
-            <div class="dash-kpi"><div class="dash-kpi-label">Blocked</div><div class="dash-kpi-val">${fmtNum(st.totalBlocked)}</div></div>
-            <div class="dash-kpi"><div class="dash-kpi-label">Clients</div><div class="dash-kpi-val">${fmtNum(st.totalClients)}</div></div>
-            <div class="dash-kpi"><div class="dash-kpi-label">Zones</div><div class="dash-kpi-val">${fmtNum(st.zones)}</div></div>
-            <div class="dash-kpi"><div class="dash-kpi-label">Cache entries</div><div class="dash-kpi-val">${fmtNum(st.cachedEntries)}</div></div>
-          </div>
-
-          <div class="dash-grid">
-            <div class="dash-card dash-card-wide">
+        const gridBits = [
+          on("chart") ? `<div class="dash-card dash-card-wide">
               <p class="section-title">Queries over time</p>
               <div class="dash-spark-wrap">${sparklineSvg(totalSeries, 640, 120)}</div>
               <div class="dash-spark-meta">
                 <span>${labels.length ? escapeHtml(labels[0]) : "—"}</span>
                 <span>${labels.length ? escapeHtml(labels[labels.length - 1]) : "—"}</span>
               </div>
-            </div>
-
-            <div class="dash-card">
+            </div>` : "",
+          on("results") ? `<div class="dash-card">
               <p class="section-title">Result codes</p>
               ${barRows(
                 ["No Error", "NXDOMAIN", "Server Failure", "Refused", "Dropped"],
                 [st.totalNoError, st.totalNxDomain, st.totalServerFailure, st.totalRefused, st.totalDropped],
                 "accent"
               )}
-            </div>
-            <div class="dash-card">
+            </div>` : "",
+          on("lists") ? `<div class="dash-card">
               <p class="section-title">Lists</p>
               <div class="dash-mini-stats">
                 <div><span>Block list zones</span><strong>${fmtNum(st.blockListZones)}</strong></div>
@@ -712,20 +770,51 @@
                 <div><span>Allowed zones</span><strong>${fmtNum(st.allowedZones)}</strong></div>
                 <div><span>Allow list zones</span><strong>${fmtNum(st.allowListZones)}</strong></div>
               </div>
-            </div>
-            <div class="dash-card">
+            </div>` : "",
+          on("cpu") ? `<div class="dash-card">
               <p class="section-title">CPU / RAM</p>
               ${resourceCard(data.resources)}
-            </div>
-
-            <div class="dash-card dash-card-wide">
+            </div>` : "",
+          on("services") ? `<div class="dash-card dash-card-wide">
               <p class="section-title">Services</p>
               ${servicesCard(data.services)}
-            </div>
+            </div>` : "",
+          on("tops") ? renderTops(data.topClients, data.topDomains, data.topBlockedDomains) : "",
+        ].filter(Boolean).join("");
 
-            ${renderTops(data.topClients, data.topDomains, data.topBlockedDomains)}
-          </div>
+        box.innerHTML = `
+          ${layoutPanelHtml()}
+          ${on("status") ? `<div class="dash-status">
+            <span class="dash-pill ${hy.enableBlocking ? "is-on" : "is-off"}">Blocking ${hy.enableBlocking ? "on" : "off"}</span>
+            <span class="dash-pill">Forwarders ${fmtNum(hy.forwarderCount)}</span>
+            <span class="dash-pill ${hy.enableDnsOverTls ? "is-on" : ""}">DoT ${hy.enableDnsOverTls ? "on" : "off"}${hy.dnsOverTlsPort ? " :" + hy.dnsOverTlsPort : ""}</span>
+            <span class="dash-pill ${hy.enableDnsOverHttps ? "is-on" : ""}">DoH ${hy.enableDnsOverHttps ? "on" : "off"}${hy.dnsOverHttpsPort ? " :" + hy.dnsOverHttpsPort : ""}</span>
+            ${uptime != null ? `<span class="dash-pill muted">Uptime ${escapeHtml(uptime)}</span>` : ""}
+          </div>` : ""}
+
+          ${kpiBits ? `<div class="dash-kpis">${kpiBits}</div>` : ""}
+
+          ${gridBits ? `<div class="dash-grid">${gridBits}</div>` : `<div class="empty"><strong>All tiles hidden</strong><span>Open Tiles to turn some back on.</span></div>`}
         `;
+
+        const layoutEl = document.getElementById("dashLayoutPanel");
+        const layoutBtn = document.getElementById("btnDashLayout");
+        if (layoutBtn && layoutBtn.classList.contains("is-active") && layoutEl) {
+          layoutEl.classList.add("is-open");
+        }
+        layoutEl?.querySelectorAll("[data-dash-w]").forEach((inp) => {
+          inp.addEventListener("change", () => {
+            widgets[inp.getAttribute("data-dash-w")] = !!inp.checked;
+            saveDashWidgets(widgets);
+            load();
+          });
+        });
+        document.getElementById("btnDashLayoutReset")?.addEventListener("click", () => {
+          widgets = {};
+          DASH_WIDGET_DEFS.forEach((w) => { widgets[w.id] = true; });
+          saveDashWidgets(widgets);
+          load();
+        });
       } catch (ex) {
         box.innerHTML = `<div class="empty"><strong>Failed to load</strong><br>${escapeHtml(ex.message || "error")}</div>`;
       }
@@ -736,6 +825,14 @@
       location.hash = "#/dashboard/" + period;
     });
     document.getElementById("btnDashRefresh").addEventListener("click", load);
+    document.getElementById("btnDashLayout").addEventListener("click", () => {
+      const btn = document.getElementById("btnDashLayout");
+      const panel = document.getElementById("dashLayoutPanel");
+      const open = !(panel && panel.classList.contains("is-open"));
+      btn.classList.toggle("is-active", open);
+      if (panel) panel.classList.toggle("is-open", open);
+      else load();
+    });
     await load();
   }
 

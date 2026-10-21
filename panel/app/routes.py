@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -853,6 +854,49 @@ def _main_series(main: dict | None) -> dict[str, Any]:
     }
 
 
+_DASHBOARD_CLIENT_WINDOWS = {
+    "LastHour": timedelta(hours=1),
+    "LastDay": timedelta(days=1),
+    "LastWeek": timedelta(days=7),
+    "LastMonth": timedelta(days=31),
+    "LastYear": timedelta(days=366),
+}
+# Technitium StatCounter Truncate caps; totalClients often sticks at these.
+_TECHNITIUM_CLIENT_TRUNCATE_CAPS = frozenset({100, 1000})
+
+
+def _enrich_total_clients(stats: dict[str, Any], stats_type: str) -> dict[str, Any]:
+    """Prefer querylogs DISTINCT when Technitium clients look truncated/capped."""
+    from . import query_logs as ql
+
+    out = dict(stats or {})
+    try:
+        tech = int(out.get("totalClients") or 0)
+    except (TypeError, ValueError):
+        tech = 0
+    out["totalClientsTechnitium"] = tech
+
+    delta = _DASHBOARD_CLIENT_WINDOWS.get(stats_type)
+    logs_n: int | None = None
+    if delta is not None:
+        since = (datetime.now(timezone.utc) - delta).strftime("%Y-%m-%d %H:%M:%S")
+        logs_n = ql.count_distinct_clients_since(since)
+    out["totalClientsQuerylogs"] = logs_n
+
+    use_logs = logs_n is not None and (
+        logs_n > tech or (tech in _TECHNITIUM_CLIENT_TRUNCATE_CAPS and logs_n >= tech)
+    )
+    if use_logs:
+        out["totalClients"] = int(logs_n)
+        out["totalClientsSource"] = "querylogs"
+        out["totalClientsMayBeTruncated"] = tech in _TECHNITIUM_CLIENT_TRUNCATE_CAPS
+    else:
+        out["totalClients"] = tech
+        out["totalClientsSource"] = "technitium"
+        out["totalClientsMayBeTruncated"] = tech in _TECHNITIUM_CLIENT_TRUNCATE_CAPS
+    return out
+
+
 @router.get("/dashboard")
 async def get_dashboard(
     type: str = "LastHour",  # noqa: A002 — query param name matches Technitium
@@ -882,10 +926,11 @@ async def get_dashboard(
 
     resources = host_stats.read_cpu_ram()
     services = await host_stats.probe_services()
+    stats = _enrich_total_clients(resp.get("stats") or {}, stats_type)
 
     return {
         "type": stats_type,
-        "stats": resp.get("stats") or {},
+        "stats": stats,
         "mainChart": _main_series(resp.get("mainChartData")),
         "queryResponse": _chart_pair(resp.get("queryResponseChartData")),
         "queryType": _chart_pair(resp.get("queryTypeChartData")),

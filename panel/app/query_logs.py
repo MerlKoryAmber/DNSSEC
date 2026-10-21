@@ -84,6 +84,33 @@ def querylogs_row_count() -> int | None:
         return None
 
 
+def count_distinct_clients_since(since_utc: str) -> int | None:
+    """Unique client_ip in querylogs since `YYYY-MM-DD HH:MM:SS` (UTC text).
+
+    Technitium StatsManager truncates top-client maps (STATS_TOP_LIMIT) and can
+    report totalClients stuck at the truncate cap (historically 100 / now 1000).
+    Query logs keep full client_ip and are a better source when available.
+    """
+    path = querylogs_db_path()
+    if not path.is_file():
+        return None
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(str(path), timeout=5.0)
+        try:
+            conn.execute("PRAGMA busy_timeout=5000")
+            row = conn.execute(
+                "SELECT COUNT(DISTINCT client_ip) FROM dns_logs WHERE timestamp >= ?",
+                (since_utc,),
+            ).fetchone()
+            return int(row[0]) if row and row[0] is not None else 0
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+
+
 def maybe_purge_allowed_low_risk(*, fill_ratio: float = PURGE_FILL_RATIO) -> dict[str, Any]:
     """Run blocked+risk purge only when row count ≥ fill_ratio × maxLogRecords."""
     from . import ui_prefs

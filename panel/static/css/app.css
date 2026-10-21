@@ -133,12 +133,20 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   margin: 0 0 4px;
   font-size: 1.35rem;
   font-weight: 600;
-  color: var(--ir-text);
+  color: #f5f8ff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 .login-card .sub {
   margin: 0 0 20px;
-  color: var(--ir-text-muted);
+  color: #e8eef5;
   font-size: 0.9rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+/* labels/hint на glass поверх снега/облаков — белые + тень, иначе смываются */
+.login-card .field label,
+.login-card .hint {
+  color: #e8eef5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 .brand-mark {
   flex: 0 0 48px;
@@ -562,6 +570,10 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   background: color-mix(in srgb, var(--ir-danger) 22%, transparent);
 }
 .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+.btn.is-active {
+  border-color: var(--ir-accent);
+  color: var(--ir-accent);
+}
 
 /* ========== Table fill panel ========== */
 .table-wrap {
@@ -570,9 +582,8 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--ir-surface) 68%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  /* opaque — backdrop-filter on scroll surfaces lags hard (prod themes) */
+  background: color-mix(in srgb, var(--ir-surface) 92%, var(--ir-bg));
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -689,6 +700,22 @@ table.data tr.is-disabled td {
   -webkit-overflow-scrolling: touch;
   padding: 0;
   align-content: start;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ir-accent) 45%, transparent) transparent;
+}
+.form-panel::-webkit-scrollbar { width: 8px; height: 8px; }
+.form-panel::-webkit-scrollbar-track { background: transparent; }
+.form-panel::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ir-accent) 40%, transparent);
+  border-radius: 4px;
+}
+.form-panel::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ir-accent) 65%, transparent);
+}
+/* Dashboard: контент выше окна → вертикальный скролл здесь; горизонталь режем */
+.form-panel.dash-panel {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 #setWork.form-panel,
 #setInner {
@@ -888,9 +915,7 @@ table.data tr.is-disabled td {
   max-width: none;
   height: auto;
   min-height: 0;
-  background: color-mix(in srgb, var(--ir-surface) 62%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(1.15);
-  backdrop-filter: blur(12px) saturate(1.15);
+  background: color-mix(in srgb, var(--ir-surface) 92%, var(--ir-bg));
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   padding: 0;
@@ -1326,6 +1351,27 @@ table.data tr.is-disabled td {
   flex-direction: column;
   gap: var(--space-lg);
 }
+.dash-layout-panel {
+  display: none;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  border: 1px solid var(--ir-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ir-surface) 92%, var(--ir-bg));
+}
+.dash-layout-panel.is-open { display: flex; }
+.dash-layout-panel label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-size: 0.8rem;
+  color: var(--ir-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.dash-layout-panel input { margin: 0; accent-color: var(--ir-accent); }
 .dash-status {
   display: flex;
   flex-wrap: wrap;
@@ -1356,14 +1402,17 @@ table.data tr.is-disabled td {
   width: 100%;
 }
 .dash-kpi {
-  background: color-mix(in srgb, var(--ir-surface) 62%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(1.15);
-  backdrop-filter: blur(12px) saturate(1.15);
+  background: color-mix(in srgb, var(--ir-surface) 92%, var(--ir-bg));
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);
   min-width: 0;
   box-shadow: var(--shadow-sm);
+}
+.dash-kpi-hint {
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: var(--ir-text-muted);
 }
 .dash-kpi-label {
   font-size: 0.75rem;
@@ -1394,9 +1443,7 @@ table.data tr.is-disabled td {
   .dash-grid { grid-template-columns: 1fr; }
 }
 .dash-card {
-  background: color-mix(in srgb, var(--ir-surface) 62%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(1.15);
-  backdrop-filter: blur(12px) saturate(1.15);
+  background: color-mix(in srgb, var(--ir-surface) 92%, var(--ir-bg));
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);

@@ -74,7 +74,8 @@
     --mk-bg: #0b121c; --mk-surface: #121a28; --mk-surface-hover: #1a2436;
     --mk-border: #2a3548; --mk-border-light: #232d3f;
     --mk-header: #0f1b2e; --mk-header-dark: #0a1220;
-    --mk-text: #d7dfe9; --mk-muted: #798397; --mk-heading: #f5f8ff;
+    /* muted светлее #798397 с сайта — иначе labels на glass-login поверх снега/облаков нечитаемы */
+    --mk-text: #e8eef5; --mk-muted: #b8c2d0; --mk-heading: #f5f8ff;
     --mk-accent: #0dbfd7; --mk-accent-hover: #00b4d3; --mk-accent-light: rgba(13, 191, 215, .16);
     --mk-on-accent: #0b121c; --mk-link: #0dbfd7;
     --mk-ok: #3daa6d; --mk-err: #ff5268; --mk-warn: #86dfeb;
