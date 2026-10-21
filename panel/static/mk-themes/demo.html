@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Демо MK Themes: открыть файл в браузере. Тема по умолчанию — data-theme ниже; «Theme» переключает по кругу для себя. -->
+<html lang="en" data-theme="steampunk" data-user="demo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MK Themes demo</title>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="themes.css">
+<style>
+  /* так проект связывает свои переменные с набором — один раз */
+  :root { --bg: var(--mk-bg); --surface: var(--mk-surface); --border: var(--mk-border); --text: var(--mk-text);
+          --muted: var(--mk-muted); --heading: var(--mk-heading); --accent: var(--mk-accent); --on-accent: var(--mk-on-accent); }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", sans-serif; color: var(--text); background: var(--bg); }
+  header { display: flex; align-items: center; gap: 16px; height: 52px; padding: 0 16px; }
+  header b { color: var(--heading); font-size: 17px; } header b span { color: var(--accent); }
+  .grow { flex: 1; } .wrap { display: flex; min-height: calc(100vh - 54px); }
+  aside { width: 210px; padding: 12px 0; border-right: 1px solid var(--border); } aside div { padding: 5px 16px; }
+  aside .on { border-left: 3px solid var(--accent); color: var(--heading); }
+  main { flex: 1; padding: 20px 24px; } h1 { margin: 0 0 12px; color: var(--heading); font-size: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; max-width: 640px; }
+  button { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  #login { display: none; } body.show-login #app { display: none; } body.show-login #login { display: flex; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="mk-themed-header">
+    <b>MK <span>Demo</span></b><span class="grow"></span>
+    <button onclick="this.textContent = 'Theme: ' + mkTheme.cycle()">Theme: <script>document.write(mkTheme.get())</script></button>
+    <button onclick="document.body.classList.add('show-login')">Sign-in screen</button>
+  </header>
+  <div class="wrap mk-themed-body">
+    <aside class="mk-themed-side"><div class="on">Overview</div><div>Users</div><div>Settings</div></aside>
+    <main><h1>Overview</h1><div class="card">Panels stay solid; the theme picture shows in the header, the side menu and behind the content.
+      <p><button class="primary">Primary</button> <button>Secondary</button></p></div></main>
+  </div>
+</div>
+<div id="login" class="mk-login-art">
+  <form class="mk-login-glass" onsubmit="document.body.classList.remove('show-login'); return false;">
+    <h1>Sign in to your account</h1>
+    <label class="mk-login-field"><input placeholder="User name"></label>
+    <label class="mk-login-field"><input type="password" placeholder="Password"></label>
+    <label class="mk-login-remember"><input type="checkbox"> Remember user name</label>
+    <button class="mk-login-submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

@@ -159,9 +159,24 @@
     return (user && (user.displayName || user.username)) || "admin";
   }
 
+  const THEME_LABELS = {
+    standard: "Standard",
+    forest: "Forest",
+    steampunk: "Steampunk",
+    gold: "Gold",
+    itheme: "ITheme",
+  };
+
+  function applyThemeUser(name) {
+    if (window.mkTheme && typeof mkTheme.syncUser === "function") {
+      mkTheme.syncUser(name || "");
+    }
+  }
+
   async function ensureAuth() {
     try {
       user = await DnsApi.me();
+      applyThemeUser(user.username || user.displayName || "");
       try {
         const prefs = await DnsApi.uiPrefs();
         uiPrefs = {
@@ -175,6 +190,7 @@
       return true;
     } catch {
       user = null;
+      applyThemeUser("");
       return false;
     }
   }
@@ -235,6 +251,11 @@
   }
 
   function renderLogin() {
+    const themeOrder = (window.mkTheme && mkTheme.order) || ["standard", "forest", "steampunk", "gold", "itheme"];
+    const themeCur = (window.mkTheme && mkTheme.get()) || "gold";
+    const themeOpts = themeOrder.map((t) =>
+      `<option value="${escapeHtml(t)}" ${t === themeCur ? "selected" : ""}>${escapeHtml(THEME_LABELS[t] || t)}</option>`
+    ).join("");
     root.innerHTML = `
       <div class="login-page">
         <form class="login-card" id="loginForm">
@@ -253,9 +274,16 @@
             <input id="pass" name="password" type="password" autocomplete="current-password" required />
             <div class="hint">DNS server account (default: admin)</div>
           </div>
+          <div class="field">
+            <label for="loginTheme">Theme</label>
+            <select id="loginTheme">${themeOpts}</select>
+          </div>
           <button class="btn" type="submit" style="width:100%">Sign in</button>
         </form>
       </div>`;
+    document.getElementById("loginTheme").addEventListener("change", (e) => {
+      if (window.mkTheme) mkTheme.set(e.target.value);
+    });
     document.getElementById("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const err = document.getElementById("loginErr");
@@ -277,7 +305,7 @@
     root.innerHTML = `
       <div class="app-shell">
         <div class="sidebar-backdrop" id="sidebarBack"></div>
-        <aside class="sidebar" id="sidebar">
+        <aside class="sidebar mk-themed-side" id="sidebar">
           <div class="sidebar-brand">
             <div class="brand-mark" aria-hidden="true">
               <img src="/img/brand-mascot.png" alt="" />
@@ -300,8 +328,8 @@
           </nav>
           <div class="sidebar-foot">Internal</div>
         </aside>
-        <div class="main">
-          <header class="topbar">
+        <div class="main mk-themed-body">
+          <header class="topbar mk-themed-header">
             <div style="display:flex;align-items:center;gap:10px;min-width:0">
               <button type="button" class="hamburger" id="menuBtn" aria-label="Menu">☰</button>
               <h2>${escapeHtml(title)}</h2>
@@ -359,6 +387,8 @@
       document.removeEventListener("click", onDocClick);
       closeUserMenu();
       try { await DnsApi.logout(); } catch { /* ignore */ }
+      user = null;
+      applyThemeUser("");
       location.hash = "#/login";
       renderLogin();
     });
@@ -1797,8 +1827,28 @@
         const maxDays = Number(prefs.maxLogDays);
         const daysVal = Number.isFinite(maxDays) ? maxDays : 90;
         const estLabel = prefs.logDbEstimateLabel || "";
+        const themeOrder = (window.mkTheme && mkTheme.order) || ["standard", "forest", "steampunk", "gold", "itheme"];
+        const themeCur = (window.mkTheme && mkTheme.get()) || "gold";
+        const themeOpts = themeOrder.map((t) =>
+          `<option value="${escapeHtml(t)}" ${t === themeCur ? "selected" : ""}>${escapeHtml(THEME_LABELS[t] || t)}</option>`
+        ).join("");
         inner.innerHTML = `
           <div class="form-card">
+            <p class="section-title">Appearance</p>
+            <div class="proto-list">
+              <div class="proto-row">
+                <div class="proto-main">
+                  <div class="field field-flush">
+                    <label for="uiTheme">Theme</label>
+                    <select id="uiTheme">${themeOpts}</select>
+                    <div class="hint">Personal choice for this browser (saved per signed-in user). Default for new sessions: Gold.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-card" style="margin-top:var(--space-md)">
             <p class="section-title">Time zone</p>
             <div class="proto-list">
               <div class="proto-row">
@@ -1850,6 +1900,7 @@
             </div>
           </div>`;
         const sel = document.getElementById("uiTimezone");
+        const themeSel = document.getElementById("uiTheme");
         const recInp = document.getElementById("uiMaxLogRecords");
         const daysInp = document.getElementById("uiMaxLogDays");
         const estEl = document.getElementById("uiLogEst");
@@ -1864,6 +1915,12 @@
           const mib = (n * 800) / (1024 * 1024);
           estEl.textContent = `~${Math.round(mib)} MiB @ ~800 B/row`;
         };
+        themeSel.addEventListener("change", () => {
+          if (window.mkTheme) {
+            mkTheme.set(themeSel.value);
+            toast("Theme: " + (THEME_LABELS[themeSel.value] || themeSel.value));
+          }
+        });
         sel.addEventListener("change", refreshSample);
         recInp.addEventListener("input", refreshEst);
         document.getElementById("btnSaveUiPrefs").addEventListener("click", async () => {

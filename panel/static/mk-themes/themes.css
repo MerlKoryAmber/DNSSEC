@@ -1,0 +1,142 @@
+/* MK Themes — темы интерфейса (Standard / Forest / Steampunk / Gold / ITheme).
+   Источник — Adm themes/mk-themes; DNS держит копию в panel/static/mk-themes.
+   Тема = data-theme у <html> (ставит theme.js). */
+
+/* ---------- палитры ---------- */
+:root, :root[data-theme="standard"] {
+    --mk-bg: #0c121c; --mk-surface: #141c2a; --mk-surface-hover: #1a2436;
+    --mk-border: #2a3548; --mk-border-light: #232d3f;
+    --mk-header: #0f1b2e; --mk-header-dark: #0a1220;
+    --mk-text: #d6dee8; --mk-muted: #8a94a3; --mk-heading: #eef2f7;
+    --mk-accent: #c9a96e; --mk-accent-hover: #b89a60; --mk-accent-light: rgba(201, 169, 110, .16);
+    --mk-on-accent: #0c121c; --mk-link: #c9a96e;
+    --mk-ok: #3daa6d; --mk-err: #e06b63; --mk-warn: #d4a017;
+    /* картинка темы в интерфейсе (шапка, меню, фон); none — без картинки */
+    --mk-img: none; --mk-img-header: center; --mk-img-side: center; --mk-img-body: center;
+    /* насколько цвет перекрывает картинку: 100% — картинки не видно */
+    --mk-fade-header-from: 100%; --mk-fade-header-to: 100%; --mk-fade-side: 100%; --mk-fade-body: 100%;
+    /* экран входа */
+    --mk-login-bg: #0b1a2c; --mk-login-img: none;
+    --mk-glass-bg: rgba(14, 26, 44, .52); --mk-glass-border: rgba(255, 255, 255, .22);
+    --mk-glass-accent: #e8b84f; --mk-glass-focus: #f2c66b; --mk-glass-btn-from: #e2b062; --mk-glass-btn-to: #f6d77a;
+    --mk-glass-field-bg: rgba(8, 16, 30, .40);
+}
+
+:root[data-theme="forest"] {
+    --mk-bg: #0a121a; --mk-surface: #0f1b26; --mk-surface-hover: #142433;
+    --mk-border: #24394b; --mk-border-light: #1d3042;
+    --mk-header: #13212d; --mk-header-dark: #0c1620;
+    --mk-text: #e3ecf3; --mk-muted: #8fa6b8; --mk-heading: #f2f6fa;
+    --mk-accent: #d7a845; --mk-accent-hover: #f0c766; --mk-accent-light: rgba(215, 168, 69, .16);
+    --mk-on-accent: #14100a; --mk-link: #f0c766;
+    --mk-ok: #6fae8c; --mk-err: #e06b63; --mk-warn: #d4a017;
+    /* абсолютный путь: url() из var(--mk-*) резолвится относительно app.css, не themes.css */
+    --mk-img: url("/mk-themes/img/forest-2560.jpg"); --mk-img-header: 30% 18%; --mk-img-side: 8% 60%; --mk-img-body: 55% 55%;
+    --mk-fade-header-from: 88%; --mk-fade-header-to: 45%; --mk-fade-side: 78%; --mk-fade-body: 68%;
+    --mk-login-bg: #0b1a2c; --mk-login-img: url("/mk-themes/img/forest-2560.jpg");
+}
+
+:root[data-theme="steampunk"] {
+    --mk-bg: #17110b; --mk-surface: #241a12; --mk-surface-hover: #2e2217;
+    --mk-border: #4d3823; --mk-border-light: #3a2a1a;
+    --mk-header: #2b2015; --mk-header-dark: #1a120b;
+    --mk-text: #eadbc0; --mk-muted: #a48e6c; --mk-heading: #f2e3c6;
+    --mk-accent: #c9973f; --mk-accent-hover: #e2b65e; --mk-accent-light: rgba(201, 151, 63, .16);
+    --mk-on-accent: #1b120a; --mk-link: #e2b65e;
+    --mk-ok: #86a352; --mk-err: #c0573c; --mk-warn: #d4a017;
+    --mk-img: url("/mk-themes/img/steampunk-2560.jpg"); --mk-img-header: center 35%; --mk-img-side: 10% 80%; --mk-img-body: 70% 60%;
+    --mk-fade-header-from: 88%; --mk-fade-header-to: 45%; --mk-fade-side: 78%; --mk-fade-body: 68%;
+    --mk-login-bg: #1c120a; --mk-login-img: url("/mk-themes/img/steampunk-2560.jpg");
+    --mk-glass-bg: rgba(38, 24, 12, .55); --mk-glass-border: rgba(214, 170, 104, .42);
+    --mk-glass-accent: #d9a85b; --mk-glass-focus: #e0a25a; --mk-glass-btn-from: #a86b2d; --mk-glass-btn-to: #e2b469;
+    --mk-glass-field-bg: rgba(26, 15, 6, .45);
+}
+
+/* Gold — прежняя палитра DNS Panel (Interros/gold text), без фоновой картинки */
+:root[data-theme="gold"] {
+    --mk-bg: #0c121c; --mk-surface: #141c2a; --mk-surface-hover: #1a2436;
+    --mk-border: #2a3548; --mk-border-light: #232d3f;
+    --mk-header: #0f1b2e; --mk-header-dark: #0a1220;
+    --mk-text: #c9a96e; --mk-muted: #8a94a3; --mk-heading: #c9a96e;
+    --mk-accent: #c9a96e; --mk-accent-hover: #b89a60; --mk-accent-light: rgba(201, 169, 110, .16);
+    --mk-on-accent: #0c121c; --mk-link: #c9a96e;
+    --mk-ok: #3daa6d; --mk-err: #e06b63; --mk-warn: #d4a017;
+    --mk-img: none; --mk-img-header: center; --mk-img-side: center; --mk-img-body: center;
+    --mk-fade-header-from: 100%; --mk-fade-header-to: 100%; --mk-fade-side: 100%; --mk-fade-body: 100%;
+    --mk-login-bg: #0c121c; --mk-login-img: none;
+    --mk-glass-bg: rgba(14, 26, 44, .52); --mk-glass-border: rgba(255, 255, 255, .22);
+    --mk-glass-accent: #e8b84f; --mk-glass-focus: #f2c66b; --mk-glass-btn-from: #e2b062; --mk-glass-btn-to: #f6d77a;
+    --mk-glass-field-bg: rgba(8, 16, 30, .40);
+}
+
+/* ITheme — брендбук Интеррос (new.interros.ru: сланец + циан, без золота) + фон «Три вулкана» */
+:root[data-theme="itheme"] {
+    --mk-bg: #0b121c; --mk-surface: #121a28; --mk-surface-hover: #1a2436;
+    --mk-border: #2a3548; --mk-border-light: #232d3f;
+    --mk-header: #0f1b2e; --mk-header-dark: #0a1220;
+    --mk-text: #d7dfe9; --mk-muted: #798397; --mk-heading: #f5f8ff;
+    --mk-accent: #0dbfd7; --mk-accent-hover: #00b4d3; --mk-accent-light: rgba(13, 191, 215, .16);
+    --mk-on-accent: #0b121c; --mk-link: #0dbfd7;
+    --mk-ok: #3daa6d; --mk-err: #ff5268; --mk-warn: #86dfeb;
+    --mk-img: url("/mk-themes/img/itheme-2560.jpg");
+    --mk-img-header: 50% 28%; --mk-img-side: 12% 55%; --mk-img-body: 55% 42%;
+    --mk-fade-header-from: 88%; --mk-fade-header-to: 45%; --mk-fade-side: 78%; --mk-fade-body: 68%;
+    --mk-login-bg: #0b121c; --mk-login-img: url("/mk-themes/img/itheme-2560.jpg");
+    --mk-glass-bg: rgba(14, 26, 44, .48); --mk-glass-border: rgba(255, 255, 255, .22);
+    --mk-glass-accent: #0dbfd7; --mk-glass-focus: #86dfeb; --mk-glass-btn-from: #064b6a; --mk-glass-btn-to: #0dbfd7;
+    --mk-glass-field-bg: rgba(8, 16, 30, .40);
+}
+
+/* 4K и плотные экраны — картинка экрана входа в 3840 */
+@media (min-width: 2561px), (min-width: 1921px) and (min-resolution: 1.25dppx), (min-width: 1281px) and (min-resolution: 2dppx) {
+    :root[data-theme="steampunk"] { --mk-login-img: url("/mk-themes/img/steampunk-3840.jpg"); }
+    :root[data-theme="itheme"] { --mk-login-img: url("/mk-themes/img/itheme-3840.jpg"); }
+}
+
+/* ---------- картинка темы в интерфейсе: классы вешает проект на свои шапку, меню и фон ---------- */
+.mk-themed-header {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--mk-header-dark) var(--mk-fade-header-from), transparent),
+                                       color-mix(in srgb, var(--mk-header-dark) var(--mk-fade-header-to), transparent)),
+                var(--mk-img) var(--mk-img-header) / cover, var(--mk-header);
+    border-bottom: 2px solid var(--mk-accent);
+}
+.mk-themed-side {
+    background: linear-gradient(color-mix(in srgb, var(--mk-surface) var(--mk-fade-side), transparent),
+                                color-mix(in srgb, var(--mk-surface) var(--mk-fade-side), transparent)),
+                var(--mk-img) var(--mk-img-side) / cover, var(--mk-surface);
+}
+.mk-themed-body {
+    background: linear-gradient(color-mix(in srgb, var(--mk-bg) var(--mk-fade-body), transparent),
+                                color-mix(in srgb, var(--mk-bg) var(--mk-fade-body), transparent)),
+                var(--mk-img) var(--mk-img-body) / cover, var(--mk-bg);
+}
+
+/* ---------- экран входа: картинка на весь экран, полупрозрачное окно левее центра ---------- */
+.mk-login-art { position: fixed; inset: 0; overflow: auto; display: flex; align-items: center; justify-content: flex-start;
+    padding: 32px 24px 32px calc(17.5vw + 24px); background: var(--mk-login-img) 65% center / cover no-repeat, var(--mk-login-bg); }
+@media (max-width: 1100px) { .mk-login-art { padding-left: clamp(20px, 5vw, 60px); } }
+.mk-login-glass { width: 100%; max-width: 400px; padding: 34px 32px 26px; border-radius: 20px; color: #e9eef5;
+    background: var(--mk-glass-bg); border: 1px solid var(--mk-glass-border);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15); backdrop-filter: blur(14px) saturate(1.15);
+    box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .65); }
+.mk-login-glass h1 { margin: 0 0 22px; font-size: 24px; font-weight: 600; color: #fff; letter-spacing: -.01em; }
+.mk-login-field { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 16px; margin-bottom: 14px; border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, .45); background: var(--mk-glass-field-bg); cursor: text; transition: border-color .15s, box-shadow .15s; }
+.mk-login-field:focus-within { border-color: var(--mk-glass-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mk-glass-focus) 30%, transparent); }
+.mk-login-field svg { flex: 0 0 22px; width: 22px; height: 22px; fill: none; stroke: #e9eef5; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.mk-login-field input, .mk-login-field select { flex: 1 1 auto; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent;
+    color: #fff; font-size: 15px; padding: 0; box-shadow: none; }
+.mk-login-field input::placeholder { color: rgba(233, 238, 245, .65); }
+.mk-login-field select option { color: #111; }
+.mk-login-remember { display: flex; align-items: center; gap: 10px; margin: 4px 0 22px; font-size: 14px; color: #e9eef5; cursor: pointer; }
+.mk-login-remember input { width: 18px; height: 18px; margin: 0; accent-color: var(--mk-glass-accent); }
+.mk-login-submit { width: 100%; height: 52px; border: 0; border-radius: 12px; cursor: pointer; font-size: 15px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase; color: #1d2633;
+    background: linear-gradient(90deg, var(--mk-glass-btn-from) 0%, var(--mk-glass-btn-to) 100%);
+    box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--mk-glass-btn-to) 70%, transparent); transition: filter .15s, transform .05s; }
+.mk-login-submit:hover { filter: brightness(1.05); }
+.mk-login-submit:active { transform: translateY(1px); }
+@media (max-width: 760px) {
+    .mk-login-art { justify-content: center; padding: 20px 16px; background-position: 72% center; }
+    .mk-login-glass { padding: 28px 22px 22px; }
+}

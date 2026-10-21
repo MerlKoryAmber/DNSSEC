@@ -1,5 +1,5 @@
-/* DNS Panel — Interros/gold как squid-panel (маскот, Inter, favicon, палитра).
-   Раскладка и скролл — по docs/design/UI_UX.md */
+/* DNS Panel — раскладка UI_UX.md; палитра из mk-themes (--mk-*) через --ir-*.
+   Темы: standard / forest / steampunk / gold (прежний вид панели). */
 
 :root {
   /* доли viewport, не сетка одного монитора */
@@ -8,32 +8,33 @@
   --pad-x: clamp(12px, 2vw, 32px);
   --pad-y: clamp(8px, 1.5vh, 16px);
 
-  --ir-primary: #0f1b2e;
-  --ir-primary-dark: #0a1220;
-  --ir-primary-light: #1a2d4a;
-  --ir-accent: #c9a96e;
-  --ir-accent-hover: #b89a60;
-  --ir-accent-light: rgba(201, 169, 110, 0.16);
+  /* связка с MK Themes */
+  --ir-primary: var(--mk-header);
+  --ir-primary-dark: var(--mk-header-dark);
+  --ir-primary-light: var(--mk-surface-hover);
+  --ir-accent: var(--mk-accent);
+  --ir-accent-hover: var(--mk-accent-hover);
+  --ir-accent-light: var(--mk-accent-light);
 
-  --ir-bg: #0c121c;
-  --ir-surface: #141c2a;
-  --ir-surface-hover: #1a2436;
-  --ir-border: #2a3548;
-  --ir-border-light: #232d3f;
+  --ir-bg: var(--mk-bg);
+  --ir-surface: var(--mk-surface);
+  --ir-surface-hover: var(--mk-surface-hover);
+  --ir-border: var(--mk-border);
+  --ir-border-light: var(--mk-border-light);
 
-  --ir-text: #c9a96e;
-  --ir-text-secondary: #b89a60;
-  --ir-text-muted: #8a94a3;
-  --ir-text-inverse: #c9a96e;
+  --ir-text: var(--mk-text);
+  --ir-text-secondary: var(--mk-accent-hover);
+  --ir-text-muted: var(--mk-muted);
+  --ir-text-inverse: var(--mk-heading);
 
-  --ir-success: #3daa6d;
-  --ir-success-bg: rgba(61, 170, 109, 0.12);
-  --ir-danger: #e06b63;
-  --ir-danger-bg: rgba(224, 107, 99, 0.12);
-  --ir-warning: #d4a017;
-  --ir-warning-bg: rgba(212, 160, 23, 0.12);
-  --ir-info: #c9a96e;
-  --ir-info-bg: rgba(201, 169, 110, 0.16);
+  --ir-success: var(--mk-ok);
+  --ir-success-bg: color-mix(in srgb, var(--mk-ok) 12%, transparent);
+  --ir-danger: var(--mk-err);
+  --ir-danger-bg: color-mix(in srgb, var(--mk-err) 12%, transparent);
+  --ir-warning: var(--mk-warn);
+  --ir-warning-bg: color-mix(in srgb, var(--mk-warn) 12%, transparent);
+  --ir-info: var(--mk-accent);
+  --ir-info-bg: var(--mk-accent-light);
 
   --space-xs: clamp(2px, 0.4vw, 4px);
   --space-sm: clamp(6px, 0.8vw, 8px);
@@ -49,28 +50,6 @@
   --transition-fast: 150ms ease;
   --transition-base: 200ms ease;
   --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-
-html[data-theme="silver"] {
-  --ir-accent: #c5cdd6;
-  --ir-accent-hover: #aeb6c0;
-  --ir-accent-light: rgba(197, 205, 214, 0.16);
-  --ir-text: #c5cdd6;
-  --ir-text-secondary: #aeb6c0;
-  --ir-text-inverse: #c5cdd6;
-  --ir-info: #c5cdd6;
-  --ir-info-bg: rgba(197, 205, 214, 0.16);
-}
-
-html[data-theme="bronze"] {
-  --ir-accent: #c56e45;
-  --ir-accent-hover: #a85b38;
-  --ir-accent-light: rgba(197, 110, 69, 0.18);
-  --ir-text: #c56e45;
-  --ir-text-secondary: #a85b38;
-  --ir-text-inverse: #c56e45;
-  --ir-info: #c56e45;
-  --ir-info-bg: rgba(197, 110, 69, 0.18);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -107,25 +86,48 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: var(--pad-y) var(--pad-x);
+  /* левее центра (как красный бокс ~22–28vw), правая треть кадра свободна под мышь */
+  justify-content: flex-start;
+  padding: clamp(16px, 3vh, 28px) clamp(12px, 2vw, 24px) clamp(16px, 3vh, 28px) clamp(18vw, 24vw, 28vw);
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(201, 169, 110, 0.08), transparent 50%),
-    var(--ir-bg);
+    var(--mk-login-img) center center / cover no-repeat,
+    var(--mk-login-bg, var(--ir-bg));
+}
+@media (max-width: 900px) {
+  .login-page {
+    padding-left: clamp(24px, 8vw, 64px);
+  }
+}
+@media (max-width: 760px) {
+  .login-page {
+    justify-content: center;
+    padding: var(--pad-y) var(--pad-x);
+  }
 }
 .login-card {
-  width: min(24rem, 100%);
-  background: var(--ir-surface);
-  border: 1px solid var(--ir-border);
+  width: min(22rem, 100%);
+  /* только фон плитки — почти стекло; поля/кнопка непрозрачные */
+  background: rgba(12, 18, 28, 0.14);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--radius-md);
   padding: clamp(20px, 3vh, 28px) clamp(20px, 3vw, 28px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: none;
   text-align: center;
 }
 .login-card .field,
 .login-card .form-error,
 .login-card .btn {
   text-align: left;
+}
+.login-card .field input:not([type="checkbox"]):not([type="radio"]),
+.login-card .field select {
+  background: var(--ir-bg);
+  opacity: 1;
+}
+.login-card .btn {
+  opacity: 1;
 }
 .login-card h1 {
   margin: 0 0 4px;
@@ -200,6 +202,15 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   height: 100%;
   z-index: 100;
   border-right: 1px solid var(--ir-border);
+}
+/* mk-themes: картинка под затемнением (выше специфичность, чем .sidebar) */
+.sidebar.mk-themed-side {
+  background: linear-gradient(
+      color-mix(in srgb, var(--mk-header) var(--mk-fade-side), transparent),
+      color-mix(in srgb, var(--mk-header) var(--mk-fade-side), transparent)
+    ),
+    var(--mk-img) var(--mk-img-side) / cover,
+    var(--mk-header);
 }
 .sidebar-brand {
   flex-shrink: 0;
@@ -290,6 +301,14 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   overflow: hidden;
   background: var(--ir-bg);
 }
+.main.mk-themed-body {
+  background: linear-gradient(
+      color-mix(in srgb, var(--mk-bg) var(--mk-fade-body), transparent),
+      color-mix(in srgb, var(--mk-bg) var(--mk-fade-body), transparent)
+    ),
+    var(--mk-img) var(--mk-img-body) / cover,
+    var(--mk-bg);
+}
 
 .topbar {
   flex: 0 0 var(--top-h);
@@ -303,6 +322,16 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   border-bottom: 1px solid var(--ir-border);
   z-index: 50;
   min-width: 0;
+}
+.topbar.mk-themed-header {
+  background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--mk-header-dark) var(--mk-fade-header-from), transparent),
+      color-mix(in srgb, var(--mk-header-dark) var(--mk-fade-header-to), transparent)
+    ),
+    var(--mk-img) var(--mk-img-header) / cover,
+    var(--mk-header);
+  border-bottom: 2px solid var(--mk-accent);
 }
 .topbar h2 {
   margin: 0;
@@ -404,7 +433,8 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   gap: var(--space-sm);
   flex-wrap: wrap;
   padding: var(--pad-y) var(--pad-x);
-  background: var(--ir-bg);
+  /* transparent — иначе перекрывает картинку темы на .main.mk-themed-body */
+  background: transparent;
   border-bottom: 1px solid var(--ir-border);
   z-index: 45;
 }
@@ -485,7 +515,8 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   /* единый отступ от меню/краёв — и таблицы, и формы (не впритык к sidebar) */
   padding: var(--pad-y) var(--pad-x);
   gap: 0;
-  background: var(--ir-bg);
+  /* transparent — картинка темы с .main; карточки/таблицы сами непрозрачные */
+  background: transparent;
 }
 .work.work-scroll {
   display: block;
@@ -539,7 +570,9 @@ a:hover { color: var(--ir-accent-hover); text-decoration: underline; }
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--ir-surface);
+  background: color-mix(in srgb, var(--ir-surface) 68%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -855,7 +888,9 @@ table.data tr.is-disabled td {
   max-width: none;
   height: auto;
   min-height: 0;
-  background: var(--ir-surface);
+  background: color-mix(in srgb, var(--ir-surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   padding: 0;
@@ -1321,7 +1356,9 @@ table.data tr.is-disabled td {
   width: 100%;
 }
 .dash-kpi {
-  background: var(--ir-surface);
+  background: color-mix(in srgb, var(--ir-surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);
@@ -1357,7 +1394,9 @@ table.data tr.is-disabled td {
   .dash-grid { grid-template-columns: 1fr; }
 }
 .dash-card {
-  background: var(--ir-surface);
+  background: color-mix(in srgb, var(--ir-surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
   border: 1px solid var(--ir-border);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);

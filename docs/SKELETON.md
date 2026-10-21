@@ -159,10 +159,11 @@
 ### Panel UI (`panel/static/`)
 | Файл | Ответственность |
 |------|-----------------|
-| `index.html` | shell + favicon + cache-bust `?v=` |
+| `index.html` | shell + favicon + cache-bust `?v=` + MK Themes |
 | `js/api.js` | `window.DnsApi` |
-| `js/app.js` | hash-router, все экраны; brand-mark login/sidebar |
-| `css/app.css` | Interros/gold (+ silver/bronze) как squid-panel |
+| `js/app.js` | hash-router, все экраны; brand-mark; Settings → Theme |
+| `css/app.css` | раскладка UI_UX; `--ir-*` ← `--mk-*` |
+| `mk-themes/` | темы standard/forest/steampunk/gold/**itheme** (ITheme); `theme.js` |
 | `css/inter-font.css` + `fonts/inter-*.ttf` | Inter локально (с squid-panel) |
 | `img/brand-mascot.png` | маскот Interros (с squid-panel) |
 
@@ -175,7 +176,7 @@
 | Client protocol | `routes.py` settings | `app.js` `#/client-protocol` | Technitium |
 | Blocking | `routes.py` `/api/blocking*` + `blocklist_store.py` | `app.js` `#/blocking` | Lists / Allowed / Blocked |
 | Query log | `routes.py` `/api/blocking/log*` + `query_logs.py` + `dns_suspicion.py` + `blocky_querylog.py` | `app.js` `#/query-log` | Technitium rows + Risk; **Upstream** из Blocky CSV (`responseReason`) |
-| Settings | `routes.py` + `panel_tls.py` + `dns_suspicion.py` | `#/settings` · General · **Cache** · Blocking · Suspicion · Panel TLS; порты — CLI | Cache: max entries / save / flush; Suspicion |
+| Settings | `routes.py` + `panel_tls.py` + `dns_suspicion.py` | `#/settings` · General (timezone, **Theme**, log budget) · **Cache** · Blocking · Suspicion · Panel TLS; порты — CLI | Theme: localStorage `mk.theme:<user>`; Cache / Suspicion |
 | Panel listen ports | `dns.sh` `ports` (+ `panel_tls.write_listen_settings`) | — | `.env` / `ui.yml` / `http.conf` |
 | Dashboard | `routes.py` `/api/dashboard` + `technitium.py` + `host_stats.py` | `app.js` `#/dashboard` | Technitium stats + CPU/RAM + services |
 
