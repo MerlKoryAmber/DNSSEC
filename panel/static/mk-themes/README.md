@@ -1,7 +1,7 @@
 # MK Themes (DNS copy)
 
-Темы: **standard** · **forest** · **steampunk** · **gold** · **itheme** (ITheme — брендбук Интеррос: сланец/циан с new.interros.ru, без золота; фон «Три вулкана»).
+Темы: **standard** · **forest** · **steampunk** · **gold** (default DNS) · **itheme** (ITheme — Interros циан + «Три вулкана»).
 
-Источник: Adm `themes/mk-themes` + DNS-темы `gold` / `itheme`. Подключение — `panel/static/index.html`. Переключение — Settings → Appearance или login (localStorage `mk.theme:<user>`).
+**Канон и грабли переноса:** Adm [`themes/mk-themes/README.md`](https://github.com/MerlKoryAmber/Adm/blob/main/themes/mk-themes/README.md) — читать перед правками/портом. Здесь копия: абсолютные `url("/mk-themes/img/…")` (см. граблю про `url()` + `app.css`) и лишняя тема `gold`.
 
-Картинки: `img/forest-*.jpg`, `steampunk-*.jpg`, `itheme-2560.jpg` / `itheme-3840.jpg`.
+Подключение — `panel/static/index.html`. Переключение — Settings → Appearance / login (`mk.theme:<user>`, `mk.theme:last`).
