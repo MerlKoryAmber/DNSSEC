@@ -245,6 +245,15 @@ compose_up() {
   dns_assert_registry_pull_path
   export HTTP_PROXY HTTPS_PROXY NO_PROXY
   export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${NO_PROXY:-}"
+  if [[ -f "$TARGET_DIR/versions.env" ]]; then
+    set +u
+    set -a
+    # shellcheck disable=SC1091
+    . "$TARGET_DIR/versions.env" || true
+    set +a
+    set -u
+    export DNS_TECHNITIUM_IMAGE DNS_BLOCKY_IMAGE DNS_NGINX_IMAGE DNS_DOCKER_CLI_IMAGE
+  fi
   log "docker compose up (project=${COMPOSE_PROJECT}) — только сервисы dns-*"
   docker compose -p "$COMPOSE_PROJECT" --project-directory "$TARGET_DIR" up -d --build
 }

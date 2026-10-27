@@ -68,11 +68,13 @@
 
 | Контейнер | Роль | Host ports | Важно |
 |-----------|------|------------|--------|
-| `dns-technitium` | лицо DNS, зоны, client DoT/DoH, login | `53`, `853`, `127.0.0.1:5380` | forwarders → IP Blocky; `dnssecValidation=false`; outbound blocklists через `TECHNITIUM_HTTP(S)_PROXY` (+ `NO_PROXY` mesh) |
-| `dns-blocky` | recursive upstreams | **нет** | `config/blocky/config.yml`, `strategy: strict`; IP **`172.18.0.100`** (`DNS_BLOCKY_IP`) — не плывёт после recreate |
-| `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock; после reload blocky — `sync-blocky-forwarder.sh` |
-| `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock |
-| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | `/api`→panel, `/dns-query`→technitium:443; `resolver 127.0.0.11` + variable `proxy_pass` (без stale IP/502); TLS `config/nginx/ssl` |
+| `dns-technitium` | лицо DNS, зоны, client DoT/DoH, login | `53`, `853`, `127.0.0.1:5380` | image pin `versions.env` (`DNS_TECHNITIUM_IMAGE`, default **15.6.2**); forwarders → IP Blocky; `dnssecValidation=false`; outbound blocklists через `TECHNITIUM_HTTP(S)_PROXY` (+ `NO_PROXY` mesh) |
+| `dns-blocky` | recursive upstreams | **нет** | pin **`v0.35.0`**; `config/blocky/config.yml`, `strategy: strict`; IP **`172.18.0.100`** (`DNS_BLOCKY_IP`) |
+| `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock; base `docker:28-cli`; после reload blocky — `sync-blocky-forwarder.sh` |
+| `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock; deps `panel/requirements.txt` |
+| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | pin **`nginx:1.30-alpine`**; `/api`→panel, `/dns-query`→technitium:443; TLS `config/nginx/ssl` |
+
+Пины: `versions.env`. Откат: `dns rollback-images` ← `storage/rollback/versions.env.previous` (`stack-images.sh`).
 
 Сеть: `dns_net` (IPAM `172.18.0.0/16`, gateway `.1`) — под fixed Blocky
 `172.18.0.100`. Blocky **не** публиковать на host :53.

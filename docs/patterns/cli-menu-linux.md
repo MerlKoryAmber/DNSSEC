@@ -52,11 +52,20 @@
 9. Show panel URL
 10. Fix upstream forwarder
 11. Set panel ports (HTTP/HTTPS)
+12. Rollback stack images (previous pins)
+13. Show stack image pins
 0. Exit
 ```
 
 Подкоманды: `update`, `update-wipe`, `uninstall`, `password`, `status`,
-`restart`, `restart-nginx`, `backup`, `url`, `fix-forwarder`, `ports`, `help`.
+`restart`, `restart-nginx`, `backup`, `url`, `fix-forwarder`, `ports`,
+`images`, `rollback-images`, `help`.
+
+### `dns rollback-images` / `dns images`
+
+Пины образов: `versions.env` (Technitium / Blocky / nginx). Перед `update` /
+`stack-images apply` слот отката = `storage/rollback/versions.env.previous`
+(снимок **running**). Пункт 12 восстанавливает слот → `compose pull/up`.
 
 ### `dns password`
 

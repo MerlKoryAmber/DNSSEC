@@ -18,7 +18,7 @@ x-proxy-guard: &proxy-guard
 
 services:
   technitium:
-    image: docker.io/technitium/dns-server:latest
+    image: ${DNS_TECHNITIUM_IMAGE:-docker.io/technitium/dns-server:15.6.2}
     container_name: dns-technitium
     hostname: dns-lab
     restart: unless-stopped
@@ -51,7 +51,7 @@ services:
       - blocky
 
   blocky:
-    image: docker.io/spx01/blocky:v0.26
+    image: ${DNS_BLOCKY_IMAGE:-docker.io/spx01/blocky:v0.35.0}
     container_name: dns-blocky
     restart: unless-stopped
     logging: *dns-logging
@@ -79,6 +79,7 @@ services:
         http_proxy: ${HTTP_PROXY:-}
         https_proxy: ${HTTPS_PROXY:-}
         no_proxy: ${NO_PROXY:-}
+        DNS_DOCKER_CLI_IMAGE: ${DNS_DOCKER_CLI_IMAGE:-docker.io/library/docker:28-cli}
     container_name: dns-blocky-watch
     restart: unless-stopped
     logging: *dns-logging
@@ -172,7 +173,7 @@ services:
       - dns_net
 
   nginx:
-    image: docker.io/library/nginx:1.27-alpine
+    image: ${DNS_NGINX_IMAGE:-docker.io/library/nginx:1.30-alpine}
     container_name: dns-nginx
     restart: unless-stopped
     logging: *dns-logging

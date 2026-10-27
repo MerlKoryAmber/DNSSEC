@@ -1,4 +1,5 @@
-FROM docker.io/library/docker:27-cli
+ARG DNS_DOCKER_CLI_IMAGE=docker.io/library/docker:28-cli
+FROM ${DNS_DOCKER_CLI_IMAGE}
 
 # Build-time proxy for apk (runtime: x-proxy-guard, no net installs).
 ARG HTTP_PROXY

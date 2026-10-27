@@ -7,6 +7,7 @@ set -euo pipefail
 DNS_DIR="${DNS_INSTALL_DIR:-/opt/dns}"
 UPDATE_SH="${DNS_DIR}/update.sh"
 UNINSTALL_SH="${DNS_DIR}/uninstall.sh"
+STACK_IMAGES_SH="${DNS_DIR}/stack-images.sh"
 INSTALL_META="/etc/dns/install.env"
 BACKUP_ROOT="${DNS_DIR}/storage/backup"
 COMPOSE_PROJECT="dns"
@@ -138,6 +139,24 @@ cmd_update_wipe() {
   ensure_valid_cwd
   cd /tmp 2>/dev/null || cd / || true
   bash "$UPDATE_SH" --wipe-data
+}
+
+cmd_images_status() {
+  if [ ! -f "$STACK_IMAGES_SH" ]; then
+    echo -e "${red}ERROR:${plain} $STACK_IMAGES_SH not found"
+    return 1
+  fi
+  bash "$STACK_IMAGES_SH" status
+}
+
+cmd_rollback_images() {
+  if [ ! -f "$STACK_IMAGES_SH" ]; then
+    echo -e "${red}ERROR:${plain} $STACK_IMAGES_SH not found"
+    return 1
+  fi
+  echo "Restores previous container image pins (Technitium / Blocky / nginx)."
+  echo "DNS zones and panel data stay. Slot: ${DNS_DIR}/storage/rollback/"
+  bash "$STACK_IMAGES_SH" rollback
 }
 
 cmd_uninstall() {
@@ -527,6 +546,8 @@ show_usage() {
   echo "  dns restart-nginx   Restart dns-nginx only"
   echo "  dns backup          Backup .env / TLS / panel / DNS data"
   echo "  dns fix-forwarder   Fix upstream forwarder"
+  echo "  dns images          Show stack image pins / rollback slot"
+  echo "  dns rollback-images Restore previous Technitium/Blocky/nginx pins"
   echo "  dns help            This text"
   echo ""
   echo "Does not touch /opt/radiusproxy, /opt/spm, or foreign containers."
@@ -547,6 +568,8 @@ show_menu() {
   echo -e " ${green}9.${plain} Show panel URL"
   echo -e " ${green}10.${plain} Fix upstream forwarder"
   echo -e " ${green}11.${plain} Set panel ports (HTTP/HTTPS)"
+  echo -e " ${green}12.${plain} Rollback stack images (previous pins)"
+  echo -e " ${green}13.${plain} Show stack image pins"
   echo -e " ${green}0.${plain} Exit"
   echo " ------------------------------------------"
 }
@@ -555,7 +578,7 @@ run_menu() {
   export DNS_MENU=1
   while true; do
     show_menu
-    read -r -p "Select [0-11]: " choice
+    read -r -p "Select [0-13]: " choice
     case "$choice" in
       1) cmd_update_keep; press_enter ;;
       2) cmd_update_wipe; press_enter ;;
@@ -568,6 +591,8 @@ run_menu() {
       9) cmd_url; press_enter ;;
       10) cmd_fix_forwarder; press_enter ;;
       11) cmd_set_ports; press_enter ;;
+      12) cmd_rollback_images; press_enter ;;
+      13) cmd_images_status; press_enter ;;
       0|q|Q) exit 0 ;;
       *) echo "Invalid option" ;;
     esac
@@ -592,6 +617,8 @@ case "${1:-}" in
   restart-nginx) cmd_restart_nginx ;;
   backup) cmd_backup ;;
   fix-forwarder|fix-fwd) cmd_fix_forwarder ;;
+  images|images-status) cmd_images_status ;;
+  rollback-images|rollback) cmd_rollback_images ;;
   *)
     echo -e "${red}Unknown:${plain} $1"
     show_usage

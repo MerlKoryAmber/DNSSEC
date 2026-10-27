@@ -10,6 +10,7 @@ config/panel/session_secret
 config/panel/technitium_admin.pass
 config/nginx/ssl/*
 !config/nginx/ssl/.gitkeep
+storage/rollback/
 *.log
 .DS_Store
 .cursor/

@@ -73,10 +73,23 @@ install_cli() {
   if [ -f "${DNS_DIR}/dns.sh" ]; then
     chmod 755 \
       "${DNS_DIR}/dns.sh" "${DNS_DIR}/update.sh" "${DNS_DIR}/uninstall.sh" \
-      "${DNS_DIR}/install.sh" "${DNS_DIR}/docker-host-proxy.sh" 2>/dev/null || true
+      "${DNS_DIR}/install.sh" "${DNS_DIR}/docker-host-proxy.sh" \
+      "${DNS_DIR}/stack-images.sh" 2>/dev/null || true
     install -m 755 "${DNS_DIR}/dns.sh" /usr/bin/dns
     install -m 755 "${DNS_DIR}/dns.sh" /usr/local/bin/dns 2>/dev/null || true
     echo "CLI: /usr/bin/dns"
+  fi
+}
+
+load_versions_env() {
+  if [ -f "${DNS_DIR}/versions.env" ]; then
+    set +u
+    set -a
+    # shellcheck disable=SC1091
+    . "${DNS_DIR}/versions.env" || true
+    set +a
+    set -u
+    export DNS_TECHNITIUM_IMAGE DNS_BLOCKY_IMAGE DNS_NGINX_IMAGE DNS_DOCKER_CLI_IMAGE
   fi
 }
 
@@ -184,7 +197,7 @@ if [ "${1:-}" != "--continue" ]; then
   fi
   chmod 755 "$CLONE_NEW/update.sh" "$CLONE_NEW/uninstall.sh" "$CLONE_NEW/install.sh" \
     "$CLONE_NEW/dns.sh" "$CLONE_NEW/docker-host-proxy.sh" \
-    "$CLONE_NEW/sync-blocky-forwarder.sh" 2>/dev/null || true
+    "$CLONE_NEW/sync-blocky-forwarder.sh" "$CLONE_NEW/stack-images.sh" 2>/dev/null || true
   exec /bin/bash "$CLONE_NEW/update.sh" --continue "$cont_flag"
 fi
 
@@ -194,6 +207,14 @@ ask_wipe
 
 echo "[2/4] Syncing code into ${DNS_DIR} (preserving data)…"
 mkdir -p "$DNS_DIR"
+
+# Snapshot image pins BEFORE rsync overwrites versions.env (rollback slot).
+if [ -f "${CLONE_NEW}/stack-images.sh" ]; then
+  echo "[2a/4] snapshot stack image pins (rollback slot)…"
+  install -m 755 "${CLONE_NEW}/stack-images.sh" "${DNS_DIR}/stack-images.sh"
+  # Prefer current on-disk versions.env; else synthesize from running containers.
+  bash "${DNS_DIR}/stack-images.sh" snapshot || true
+fi
 
 # Preserve live secrets/data while rsync replaces code.
 # config/blocky = Forwarders UI (must NOT reset to repo defaults on keep-data).
@@ -221,7 +242,7 @@ fi
 chmod 755 \
   "${DNS_DIR}/dns.sh" "${DNS_DIR}/update.sh" "${DNS_DIR}/uninstall.sh" \
   "${DNS_DIR}/install.sh" "${DNS_DIR}/docker-host-proxy.sh" \
-  "${DNS_DIR}/sync-blocky-forwarder.sh" 2>/dev/null || true
+  "${DNS_DIR}/sync-blocky-forwarder.sh" "${DNS_DIR}/stack-images.sh" 2>/dev/null || true
 
 if [ "$wipe_data" = "1" ]; then
   echo "[3/4] Wiping Technitium data…"
@@ -256,6 +277,7 @@ export http_proxy="${HTTP_PROXY:-}" https_proxy="${HTTPS_PROXY:-}" no_proxy="${N
 
 echo "[4/4] docker compose up --build…"
 cd "$DNS_DIR"
+load_versions_env
 
 # dns_net IPAM (compose) cannot be patched in place on an existing named network.
 # Partial recreate (e.g. only panel) then leaves panel unable to resolve
