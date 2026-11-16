@@ -138,6 +138,8 @@ class TechnitiumClient:
         domain: str = "example.com",
         qtype: str = "A",
         protocol: str = "Udp",
+        *,
+        timeout: float = 30.0,
     ) -> dict:
         return await self._request(
             "GET",
@@ -148,6 +150,7 @@ class TechnitiumClient:
                 "type": qtype,
                 "protocol": protocol,
             },
+            timeout=timeout,
         )
 
     async def _request_text(self, method: str, path: str, params: dict[str, Any] | None = None) -> str:

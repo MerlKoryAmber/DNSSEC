@@ -628,6 +628,27 @@
     }).join("")}</div>`;
   }
 
+  function upstreamsCard(uh) {
+    const rows = Array.isArray(uh && uh.results) ? uh.results : [];
+    if (!rows.length) {
+      return `<div class="dash-empty">No upstreams configured — add them under Forwarders</div>`;
+    }
+    const kindLabel = { classic: "UDP", dot: "DoT", doh: "DoH" };
+    return `<div class="dash-upstreams">${rows.map((r) => {
+      const ok = !!r.ok;
+      const kind = kindLabel[r.kind] || String(r.kind || "—");
+      const msg = r.message ? String(r.message) : (ok ? "up" : "down");
+      return `<div class="dash-up ${ok ? "is-up" : "is-down"}" title="${escapeHtml(msg)}">
+        <span class="dash-svc-dot" aria-hidden="true"></span>
+        <div class="dash-up-main">
+          <span class="dash-up-addr">${escapeHtml(r.addr || "—")}</span>
+          <span class="dash-up-meta"><span class="badge">${escapeHtml(kind)}</span> ${escapeHtml(msg)}</span>
+        </div>
+        <span class="dash-svc-state">${ok ? "up" : "down"}</span>
+      </div>`;
+    }).join("")}</div>`;
+  }
+
   const DASH_WIDGET_DEFS = [
     { id: "status", label: "Status" },
     { id: "kpiQueries", label: "Queries" },
@@ -641,6 +662,7 @@
     { id: "lists", label: "Lists" },
     { id: "cpu", label: "CPU / RAM" },
     { id: "services", label: "Services" },
+    { id: "upstreams", label: "Upstreams" },
     { id: "tops", label: "Top lists" },
   ];
   const DASH_WIDGETS_KEY = "mk.dash.widgets";
@@ -779,14 +801,30 @@
               <p class="section-title">Services</p>
               ${servicesCard(data.services)}
             </div>` : "",
+          on("upstreams") ? `<div class="dash-card dash-card-wide">
+              <p class="section-title">Upstreams${
+                data.upstreams && data.upstreams.total
+                  ? ` <span class="dash-title-meta">${fmtNum(data.upstreams.up)}/${fmtNum(data.upstreams.total)} up</span>`
+                  : ""
+              }</p>
+              ${upstreamsCard(data.upstreams)}
+            </div>` : "",
           on("tops") ? renderTops(data.topClients, data.topDomains, data.topBlockedDomains) : "",
         ].filter(Boolean).join("");
+
+        const uh = data.upstreams || {};
+        const upPillClass = !uh.total
+          ? "muted"
+          : (uh.ok ? "is-on" : (uh.up > 0 ? "" : "is-off"));
+        const upPillText = !uh.total
+          ? "Upstreams 0"
+          : `Upstreams ${fmtNum(uh.up)}/${fmtNum(uh.total)}`;
 
         box.innerHTML = `
           ${layoutPanelHtml()}
           ${on("status") ? `<div class="dash-status">
             <span class="dash-pill ${hy.enableBlocking ? "is-on" : "is-off"}">Blocking ${hy.enableBlocking ? "on" : "off"}</span>
-            <span class="dash-pill">Forwarders ${fmtNum(hy.forwarderCount)}</span>
+            <span class="dash-pill ${upPillClass}">${escapeHtml(upPillText)}</span>
             <span class="dash-pill ${hy.enableDnsOverTls ? "is-on" : ""}">DoT ${hy.enableDnsOverTls ? "on" : "off"}${hy.dnsOverTlsPort ? " :" + hy.dnsOverTlsPort : ""}</span>
             <span class="dash-pill ${hy.enableDnsOverHttps ? "is-on" : ""}">DoH ${hy.enableDnsOverHttps ? "on" : "off"}${hy.dnsOverHttpsPort ? " :" + hy.dnsOverHttpsPort : ""}</span>
             ${uptime != null ? `<span class="dash-pill muted">Uptime ${escapeHtml(uptime)}</span>` : ""}

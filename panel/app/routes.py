@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -540,43 +541,78 @@ def _validate_forwarder_format(addr: str, kind: str) -> str | None:
     return None
 
 
+_FWD_PROTO = {"classic": "Udp", "dot": "Tls", "doh": "Https"}
+
+
+async def _probe_one_forwarder(
+    client: TechnitiumClient,
+    *,
+    addr: str,
+    kind: str,
+    timeout: float = 5.0,
+) -> dict[str, Any]:
+    addr, kind = _normalize_forwarder(addr, kind)
+    entry: dict[str, Any] = {"addr": addr, "kind": kind, "ok": False, "message": ""}
+    fmt_err = _validate_forwarder_format(addr, kind)
+    if fmt_err:
+        entry["message"] = fmt_err
+        return entry
+    try:
+        data = await client.dns_resolve(
+            server=addr,
+            domain="example.com",
+            qtype="A",
+            protocol=_FWD_PROTO[kind],
+            timeout=timeout,
+        )
+        result = (data.get("response") or {}).get("result") or {}
+        rcode = result.get("RCODE") or result.get("rcode") or ""
+        if str(rcode).lower() in ("noerror", "nxdomain", ""):
+            meta = result.get("Metadata") or {}
+            rtt = meta.get("RoundTripTime") or ""
+            entry["ok"] = True
+            entry["message"] = f"OK{(' · ' + rtt) if rtt else ''}"
+        else:
+            entry["message"] = f"Upstream RCODE: {rcode or 'unknown'}"
+    except TechnitiumError as exc:
+        entry["message"] = exc.message
+    return entry
+
+
+async def _probe_configured_upstreams(
+    client: TechnitiumClient,
+    items: list[dict[str, str]] | None = None,
+    *,
+    timeout: float = 5.0,
+) -> dict[str, Any]:
+    """Live check of Blocky upstream rows via Technitium dnsClient/resolve."""
+    from . import blocky_config
+
+    rows = items if items is not None else blocky_config.read_forwarders()
+    if not rows:
+        return {"ok": True, "up": 0, "total": 0, "results": []}
+    probed = await asyncio.gather(
+        *[
+            _probe_one_forwarder(
+                client,
+                addr=str(r.get("addr") or ""),
+                kind=str(r.get("kind") or "classic"),
+                timeout=timeout,
+            )
+            for r in rows
+        ]
+    )
+    results = list(probed)
+    up = sum(1 for r in results if r.get("ok"))
+    return {"ok": up == len(results), "up": up, "total": len(results), "results": results}
+
+
 @router.post("/forwarders/test")
 async def test_forwarders(body: ForwardersTestBody, client: TechnitiumClient = Depends(get_client)):
     """Проверка формата и доступности forwarders через dnsClient/resolve."""
-    results = []
-    proto_map = {"classic": "Udp", "dot": "Tls", "doh": "Https"}
-    all_ok = True
-    for item in body.items:
-        addr, kind = _normalize_forwarder(item.addr, item.kind)
-        fmt_err = _validate_forwarder_format(addr, kind)
-        entry = {"addr": addr, "kind": kind, "ok": False, "message": ""}
-        if fmt_err:
-            entry["message"] = fmt_err
-            all_ok = False
-            results.append(entry)
-            continue
-        try:
-            data = await client.dns_resolve(
-                server=addr,
-                domain="example.com",
-                qtype="A",
-                protocol=proto_map[kind],
-            )
-            result = (data.get("response") or {}).get("result") or {}
-            rcode = result.get("RCODE") or result.get("rcode") or ""
-            if str(rcode).lower() in ("noerror", "nxdomain", ""):
-                meta = result.get("Metadata") or {}
-                rtt = meta.get("RoundTripTime") or ""
-                entry["ok"] = True
-                entry["message"] = f"OK{(' · ' + rtt) if rtt else ''}"
-            else:
-                entry["message"] = f"Upstream RCODE: {rcode or 'unknown'}"
-                all_ok = False
-        except TechnitiumError as exc:
-            entry["message"] = exc.message
-            all_ok = False
-        results.append(entry)
-    return {"ok": all_ok, "results": results}
+    items = [{"addr": i.addr, "kind": i.kind} for i in body.items]
+    data = await _probe_configured_upstreams(client, items, timeout=8.0)
+    return {"ok": data["ok"], "results": data["results"]}
 
 
 # --- Blocking (Technitium Settings → Blocking + Allowed/Blocked) ---
@@ -925,7 +961,10 @@ async def get_dashboard(
     from . import host_stats
 
     resources = host_stats.read_cpu_ram()
-    services = await host_stats.probe_services()
+    services, upstreams = await asyncio.gather(
+        host_stats.probe_services(),
+        _probe_configured_upstreams(client, forwarders, timeout=5.0),
+    )
     stats = _enrich_total_clients(resp.get("stats") or {}, stats_type)
 
     return {
@@ -947,6 +986,7 @@ async def get_dashboard(
             "dnsOverTlsPort": settings.get("dnsOverTlsPort"),
             "dnsOverHttpsPort": settings.get("dnsOverHttpsPort"),
         },
+        "upstreams": upstreams,
         "metrics": metrics,
         "resources": resources,
         "services": services,
