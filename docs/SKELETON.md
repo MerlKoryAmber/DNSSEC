@@ -42,13 +42,13 @@
 
 | | |
 |--|--|
-| Хост | **`172.22.86.236`** (el9) — местная лаба с 2026-10-08 |
-| SSH | `root@172.22.86.236` (пароль не в git) |
+| Хост | **`172.22.76.122`** (el9) — местная лаба с 2026-10-08 |
+| SSH | `root@172.22.76.122` / alias `dns-lab` (пароль не в git) |
 | Каталог | `/opt/dns` |
-| UI | `http://172.22.86.236:9080/` · `https://172.22.86.236:9443/` |
+| UI | `http://172.22.76.122:9080/` · `https://172.22.76.122:9443/` |
 | Логин панели | Technitium (не коммитить пароли) |
 | Сосед | **2fa_*** (podman): :80 :443 :8000 :8030 :1812 — **не трогать** |
-| Было | `192.168.0.178` — архив |
+| Было | `172.22.86.236` (до 2026-11-23) · `192.168.0.178` — архив |
 
 **Публичные порты стека (default):** `53/tcp+udp` (на lab с podman —
 `DNS_BIND_IP`=LAN IP, не `0.0.0.0`), `853/tcp` (DoT), `9080/tcp` (UI HTTP),
@@ -69,10 +69,10 @@
 | Контейнер | Роль | Host ports | Важно |
 |-----------|------|------------|--------|
 | `dns-technitium` | лицо DNS, зоны, client DoT/DoH, login | `53`, `853`, `127.0.0.1:5380` | image pin `versions.env` (`DNS_TECHNITIUM_IMAGE`, default **15.6.2**); forwarders → IP Blocky; `dnssecValidation=false`; outbound blocklists через `TECHNITIUM_HTTP(S)_PROXY` (+ `NO_PROXY` mesh) |
-| `dns-blocky` | recursive upstreams | **нет** | pin **`v0.35.0`**; `config/blocky/config.yml`, `strategy: strict`; IP **`172.18.0.100`** (`DNS_BLOCKY_IP`) |
+| `dns-blocky` | recursive upstreams | **нет** | pin **`v0.37.0`**; `config/blocky/config.yml`, `strategy: strict`; IP **`172.18.0.100`** (`DNS_BLOCKY_IP`) |
 | `dns-blocky-watch` | inotify: Blocky YAML + panel signals → restart blocky / HUP·recreate nginx | — | **единственный** docker.sock; base `docker:28-cli`; после reload blocky — `sync-blocky-forwarder.sh` |
 | `dns-panel` | FastAPI | internal `:8000` | mounts config; **без** docker.sock; deps `panel/requirements.txt` |
-| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | pin **`nginx:1.30-alpine`**; `/api`→panel, `/dns-query`→technitium:443; TLS `config/nginx/ssl` |
+| `dns-nginx` | static UI + proxy | `9080→80`, `9443→443` | pin **`nginx:1.30.7-alpine`** (CVE-2026-123007+); `/api`→panel, `/dns-query`→technitium:443; TLS `config/nginx/ssl` |
 
 Пины: `versions.env`. Откат: `dns rollback-images` ← `storage/rollback/versions.env.previous` (`stack-images.sh`).
 

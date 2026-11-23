@@ -9,8 +9,12 @@
 
 **РЕАЛИЗОВАНО НО НЕ ПРИНЯТО** · lab выкладка suspicion/auto-block (локально, без commit)
 
-Lab **`172.22.86.236`**: `/opt/dns`. Сосед **2fa_*** — не трогали.
-`DNS_BIND_IP=172.22.86.236`.
+Lab **`172.22.76.122`** (было `172.22.86.236` до 2026-11-23): `/opt/dns`.
+Сосед **2fa_*** — не трогали. `DNS_BIND_IP=172.22.76.122`.
+
+**Images 2026-11-23 МСК:** nginx **1.30.7-alpine** (CVE-2026-123007+), Blocky **v0.37.0**,
+Technitium 15.6.2; panel FastAPI 0.165.0 / pydantic 2.14.4. Rollback slot =
+pre-bump (`1.30-alpine` / `v0.35.0`). Smoke dig+health+login OK.
 
 Smoke: UI :9080 200 · Settings → **Suspicion** · `GET/PUT /api/settings/suspicion`
 · prefs в `config/panel/ui.yml` → `suspicion:` · score high+entropy OK ·
@@ -24,11 +28,11 @@ autoBlock default **off** · dig noise `*.dga-lab.example` в лог.
 
 | | |
 |--|--|
-| Хост | `172.22.86.236` (el9 / CentOS Stream 9-совместимое) |
-| SSH | `root@172.22.86.236` (пароль **не в git** — у Merl) |
-| Каталог DNS | `/opt/dns` (пока пусто; `/opt` без проектов dns) |
-| Docker | **нет** (есть **podman** у соседа) — `install.sh` поставит Docker CE |
-| UI (после install) | http://172.22.86.236:9080/ · https://…:9443/ |
+| Хост | `172.22.76.122` (el9 / CentOS Stream 9-совместимое) |
+| SSH | `root@172.22.76.122` / `dns-lab` (пароль **не в git** — у Merl) |
+| Каталог DNS | `/opt/dns` |
+| Docker | Docker CE + сосед **podman** 2fa_* |
+| UI | http://172.22.76.122:9080/ · https://…:9443/ |
 
 ### Сосед (НЕ УБИВАТЬ)
 
@@ -81,7 +85,7 @@ Podman compose **2fa_***:
 
 ## Открытое
 
-- [ ] Первый install на `172.22.86.236` (не трогая 2fa)
+- [ ] Первый install на lab (не трогая 2fa) — сделано; IP с 2026-11-23: `172.22.76.122`
 - [ ] Smoke UI/DNS/DoH; приёмка человеком
 - [ ] Если forwarders сбрасывались на старом хосте до `4d931c1` — здесь чистый старт
 

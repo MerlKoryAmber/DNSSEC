@@ -51,7 +51,7 @@ services:
       - blocky
 
   blocky:
-    image: ${DNS_BLOCKY_IMAGE:-docker.io/spx01/blocky:v0.35.0}
+    image: ${DNS_BLOCKY_IMAGE:-docker.io/spx01/blocky:v0.37.0}
     container_name: dns-blocky
     restart: unless-stopped
     logging: *dns-logging
@@ -173,7 +173,7 @@ services:
       - dns_net
 
   nginx:
-    image: ${DNS_NGINX_IMAGE:-docker.io/library/nginx:1.30-alpine}
+    image: ${DNS_NGINX_IMAGE:-docker.io/library/nginx:1.30.7-alpine}
     container_name: dns-nginx
     restart: unless-stopped
     logging: *dns-logging

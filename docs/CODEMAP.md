@@ -11,7 +11,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 ## Порты (default)
 
 - Host: `53`, `853`, `9080` (HTTP UI + DoH), `9443` (HTTPS UI)
-- Lab: **`172.22.86.236`** → `/opt/dns`. Сосед **2fa_*** (podman) держит 80/443/8000/8030/1812 — не трогать.
+- Lab: **`172.22.76.122`** → `/opt/dns`. Сосед **2fa_*** (podman) держит 80/443/8000/8030/1812 — не трогать.
 - DoH: nginx `/dns-query` → Technitium HTTPS `:443` (`enableDnsOverHttps`)
 - Смена UI-портов: **`sudo dns ports`** (не API). `80`/`443` только если свободны.
 - Hard-ban портов: `53`, DoT, `5380` (+ реально занятые по `ss`)

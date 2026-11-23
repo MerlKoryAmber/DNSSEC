@@ -21,10 +21,10 @@ Hybrid B: Technitium спереди, Blocky сзади (ADR 0002). Вариан�
 
 | | |
 |--|--|
-| Хост | `172.22.86.236` |
+| Хост | `172.22.76.122` |
 | Каталог | `/opt/dns` |
-| UI HTTP | http://172.22.86.236:9080/ |
-| UI HTTPS | https://172.22.86.236:9443/ |
+| UI HTTP | http://172.22.76.122:9080/ |
+| UI HTTPS | https://172.22.76.122:9443/ |
 | DoH | `http://HOST:9080/dns-query` |
 | DoT | `HOST:853` |
 | DNS | `HOST:53` |
