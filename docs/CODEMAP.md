@@ -20,7 +20,7 @@ Handoff (передача агенту): **`docs/agent_reports/handoff/CURRENT.m
 
 **Dashboard** · Zones · Forwarders · Client protocol · Blocking · Query log · **Settings** (General: timezone / Theme / log budget · Cache · Blocking · Suspicion · Panel TLS)
 
-Темы UI: `panel/static/mk-themes/` — `standard` · `forest` · `steampunk` · **`gold`** (default) · **`itheme`** (ITheme: сланец/циан Interros, без золота + «Три вулкана»). Переключение: Settings → Appearance / login.
+Темы UI: `panel/static/mk-themes/` — `standard` · `forest` · `steampunk` · **`gold`** (default) · **`itheme`** (сланец/циан, без золота). Переключение: Settings → Appearance / login.
 
 ## API (кратко)
 

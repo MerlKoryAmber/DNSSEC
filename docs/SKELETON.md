@@ -116,7 +116,7 @@
 | `docs/CODEMAP.md` | краткая карта + API |
 | `docs/adr/0001-stack.md` | стек / порты |
 | `docs/adr/0002-hybrid-blocky.md` | hybrid B, forwarders |
-| `docs/design/UI_UX.md` | UX Interros/gold — сверка попунктно |
+| `docs/design/UI_UX.md` | UX navy/gold — сверка попунктно |
 | `docs/agent_reports/handoff/CURRENT.md` | статус «сейчас» |
 | `CLAUDE.md` | метод агента |
 
@@ -164,10 +164,10 @@
 | `index.html` | shell + favicon + cache-bust `?v=` + MK Themes |
 | `js/api.js` | `window.DnsApi` |
 | `js/app.js` | hash-router, все экраны; brand-mark; Settings → Theme |
-| `css/app.css` | раскладка UI_UX; `--ir-*` ← `--mk-*` |
+| `css/app.css` | раскладка UI_UX; `--dp-*` ← `--mk-*` |
 | `mk-themes/` | темы standard/forest/steampunk/gold/**itheme** (ITheme); `theme.js` |
 | `css/inter-font.css` + `fonts/inter-*.ttf` | Inter локально (с squid-panel) |
-| `img/brand-mascot.png` | маскот Interros (с squid-panel) |
+| `img/brand-mascot.png` | маскот (с squid-panel) |
 
 ### Ownership по фичам
 | Фича | Backend | UI | Данные |

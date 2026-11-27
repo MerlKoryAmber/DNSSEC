@@ -52,7 +52,7 @@
     --mk-glass-field-bg: rgba(26, 15, 6, .45);
 }
 
-/* Gold — прежняя палитра DNS Panel (Interros/gold text), без фоновой картинки */
+/* Gold — прежняя палитра DNS Panel (navy/gold text), без фоновой картинки */
 :root[data-theme="gold"] {
     --mk-bg: #0c121c; --mk-surface: #141c2a; --mk-surface-hover: #1a2436;
     --mk-border: #2a3548; --mk-border-light: #232d3f;
@@ -69,7 +69,7 @@
     --mk-glass-field-bg: rgba(8, 16, 30, .40);
 }
 
-/* ITheme — брендбук Интеррос (new.interros.ru: сланец + циан, без золота) + фон «Три вулкана» */
+/* ITheme — сланец + циан (без золота), фон itheme-2560 */
 :root[data-theme="itheme"] {
     --mk-bg: #0b121c; --mk-surface: #121a28; --mk-surface-hover: #1a2436;
     --mk-border: #2a3548; --mk-border-light: #232d3f;
